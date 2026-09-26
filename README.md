@@ -38,7 +38,7 @@
 | **注册新账号** | 首次使用 | 切到「注册」页签 → 填邮箱 → 点「获取验证码」→ 填 6 位验证码 → 设置用户名和密码 → 自动登录 |
 | **登录** | 老用户 | 邮箱**或**用户名 + 密码 |
 
-账号规则：用户名仅英文/数字/下划线（3–20 位，不分大小写）；密码至少 8 位且必须包含大写字母、小写字母和数字。
+账号规则：用户名仅英文/数字/下划线（3–20 位，不分大小写）；密码至少 8 位，**包含字母和数字即可**（特殊字符与更长位数只作为强度建议，不作强制）。
 
 > **验证码在哪里看？** 本阶段验证码通过服务端控制台发送（未接真实邮件服务）：本地开发直接打印在 `npm run dev` 的终端里；服务器部署时在容器日志中（见[部署指南 4.3](#43-注册验证码邮件的当前形态)）。
 
@@ -154,11 +154,19 @@ prisma/{schema.prisma,migrations/,seed.ts}
 
 ## 三、部署指南（完整全栈部署）
 
-架构：**Nginx（TLS/反代）→ Next.js standalone 容器 → PostgreSQL 16 容器**，单机 Docker Compose 一键拉起。
+架构：**Nginx（TLS/反代）→ Next.js standalone 容器 → PostgreSQL 16 容器**。部署完成后，任何人通过浏览器访问你的域名即可注册账号使用——所有数据按账号严格隔离，互不可见。
+
+**三条部署路线，按拥有什么资源选择：**
+
+| 路线 | 适合 | 关键步骤 |
+|------|------|---------|
+| **A. 云服务器 + 源码构建** | 有云服务器，想最新代码 | 克隆仓库 → `docker compose up -d --build`（见 3.1–3.2，随后做 3.4 HTTPS） |
+| **B. 拉取现成镜像** | 服务器上不想装构建环境 | `docker pull` GHCR 镜像 → `docker-compose.prod.yml` 启动（见 3.2b） |
+| **C. 物理机直装** | 本地电脑/内网服务器，不用 Docker | 装 Node 20 + PostgreSQL → `npm ci && npm run build` → systemd/pm2 常驻（见 3.2c） |
 
 ### 3.1 准备服务器与配置
 
-要求：2C4G 起的 Linux 服务器（Ubuntu/Debian 均可）、已安装 Docker 与 Docker Compose 插件、一个解析到服务器的域名（HTTPS 需要）。
+要求：2C4G 起的服务器（云主机、VPS 或内网物理机均可）、已安装 Docker 与 Docker Compose 插件；公网域名 + DNS 解析到服务器 IP（HTTPS 需要；纯内网用 IP:端口访问可跳过）。
 
 ```bash
 # 在项目根目录创建部署环境文件（不入库）
@@ -171,9 +179,10 @@ EOF
 chmod 600 docker/.env
 ```
 
-### 3.2 构建并启动
+### 3.2 路线 A：源码构建并启动
 
 ```bash
+git clone <你的仓库地址> personal-workbench && cd personal-workbench
 cd docker
 docker compose up -d --build
 
@@ -189,16 +198,78 @@ docker compose logs -f app              # 观察启动：等库就绪 → prisma
 - 容器入口（`docker/entrypoint.sh`）会等数据库就绪后自动执行 `prisma migrate deploy`，升级时无需手工迁移；
 - 数据持久化在 `pgdata` 卷，应用文件在 `storage` 卷。
 
-### 3.3 注册验证码邮件的当前形态
+### 3.2b 路线 B：拉取镜像直接部署
 
-**本阶段邮件为控制台适配器**：用户请求验证码后，验证码打印在应用容器日志中，不发送真实邮件。生产获取方式：
+打 `v*` 标签推送时，CI（`.github/workflows/release.yml`）会自动把镜像发布到 GitHub Container Registry。部署机器上：
 
 ```bash
-docker compose logs app | grep "验证码"
-# 形如：你的注册验证码是：123456（5 分钟内有效）
+# 1) 登录 GHCR（公开镜像可跳过；私有镜像需 PAT：read:packages）
+echo $GHCR_TOKEN | docker login ghcr.io -u <github用户名> --password-stdin
+
+# 2) 准备配置（同 3.1，文件放 docker/.env，额外指定镜像所有者）
+export GHCR_OWNER=<github用户名小写>      # 镜像位于 ghcr.io/<owner>/personal-workbench
+
+# 3) 拉取镜像（在项目 docker/ 目录下）
+docker compose -f docker-compose.prod.yml pull
+
+# 4) 启动（同样自动迁移、自动健康检查）
+docker compose -f docker-compose.prod.yml up -d
+curl http://127.0.0.1:3000/api/ready
 ```
 
-接入真实邮件（Resend/SMTP）的扩展点已就位：实现 `src/lib/mail/index.ts` 的 `MailAdapter` 接口并替换导出即可，业务代码零改动。在接入前，小团队可由管理员从日志转告用户验证码。
+升级版本：`export APP_VERSION=v0.1.0 && docker compose -f docker-compose.prod.yml up -d`（回滚同理，换版本号即可）。
+
+> 推自己的镜像：本地 `docker build -f docker/Dockerfile -t ghcr.io/<owner>/personal-workbench:v0.1.0 . && docker push ...`，或直接打 tag 让 CI 发布。
+
+### 3.2c 路线 C：物理机直装（无 Docker）
+
+适合不想引入 Docker 的 Windows/Linux 物理机或内网主机。
+
+```bash
+# 前置：Node.js ≥ 20（node -v 验证）+ PostgreSQL 16 本机安装并创建库
+#   createdb -U postgres personal_workbench
+
+# 1) 源码与依赖
+git clone <你的仓库地址> && cd personal-workbench
+npm ci
+
+# 2) 配置 .env（cp .env.example .env 后修改）
+#    DATABASE_URL=postgresql://pwb:<密码>@localhost:5432/personal_workbench
+#    AUTH_SECRET=<openssl rand -base64 32>
+#    APP_URL=http://<本机局域网IP>:3000
+
+# 3) 初始化并启动
+npx prisma migrate deploy     # 建表（升级时同样执行）
+npm run build
+npm start                     # 生产模式监听 3000
+
+# 4) 常驻运行（Linux systemd 示例，Windows 可用 nssm 或「任务计划程序」）
+sudo tee /etc/systemd/system/pwb.service <<'EOF'
+[Unit]
+Description=Personal Workbench
+After=network.target postgresql.service
+[Service]
+WorkingDirectory=/opt/personal-workbench
+EnvironmentFile=/opt/personal-workbench/.env
+ExecStart=/usr/bin/npm start
+Restart=always
+User=www-data
+[Install]
+WantedBy=multi-user.target
+EOF
+sudo systemctl enable --now pwb
+```
+
+内网其他电脑浏览器访问 `http://<本机IP>:3000` 即可注册使用；如需域名与 HTTPS，仍按 3.4 配 Nginx 反代到 3000 端口。
+
+### 3.3 注册验证码邮件的当前形态
+
+**本阶段邮件为控制台适配器**：用户请求验证码后，验证码打印在应用日志中，不发送真实邮件。获取方式：
+
+- Docker：`docker compose logs app | grep "验证码"`（形如：你的注册验证码是：123456）；
+- 物理机：启动应用的终端窗口里直接可见。
+
+多人使用提示：把站点地址告诉同事/朋友，各自注册账号即可；数据按账号隔离。管理员把日志里的验证码转告给对应用户即可完成首次注册。接入真实邮件（Resend/SMTP）的扩展点已就位：实现 `src/lib/mail/index.ts` 的 `MailAdapter` 接口并替换导出即可，业务代码零改动。
 
 ### 3.4 HTTPS 与反向代理（Nginx）
 

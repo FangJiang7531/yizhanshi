@@ -94,6 +94,7 @@ export function HabitBoard({
   const [editing, setEditing] = useState<HabitDTO | null>(null);
   const [guestPrompt, setGuestPrompt] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState<HabitDTO | null>(null);
+  const [celebrate, setCelebrate] = useState<{ key: number; streak: number } | null>(null);
 
   function openCreate() {
     if (isGuest) {
@@ -152,6 +153,11 @@ export function HabitBoard({
           : x,
       ),
     );
+    if (result.checked) {
+      // 打卡成功：卡通徽标从小到大快速跳出又消失（视觉反馈，PRD §5.2.2）
+      setCelebrate({ key: Date.now(), streak: result.currentStreak });
+      window.setTimeout(() => setCelebrate(null), 1700);
+    }
     toast(
       "success",
       result.checked
@@ -261,6 +267,57 @@ export function HabitBoard({
           router.refresh();
         }}
       />
+
+      {/* 打卡成功徽标：从大到小弹出 → 短暂停留 → 上浮消失（role=status 供读屏） */}
+      {celebrate && (
+        <div
+          key={celebrate.key}
+          className="pointer-events-none fixed inset-0 z-[95] flex items-center justify-center"
+          role="status"
+        >
+          <div className="relative flex flex-col items-center">
+            <span
+              className="celebrate-ring absolute h-28 w-28 rounded-full"
+              style={{ border: "3px solid var(--color-primary)" }}
+              aria-hidden
+            />
+            {/* 四散的小星光 */}
+            {[
+              { x: "-70px", y: "-46px" },
+              { x: "66px", y: "-52px" },
+              { x: "-58px", y: "42px" },
+              { x: "60px", y: "38px" },
+            ].map((s, i) => (
+              <span
+                key={i}
+                className="celebrate-spark absolute text-lg"
+                style={{ "--spark-x": s.x, "--spark-y": s.y } as React.CSSProperties}
+                aria-hidden
+              >
+                ✦
+              </span>
+            ))}
+            <div
+              className="celebrate-badge flex flex-col items-center gap-1 rounded-[var(--radius-lg)] px-6 py-4"
+              style={{
+                backgroundColor: "var(--color-bg-surface)",
+                border: "2px solid var(--color-primary)",
+                boxShadow: "var(--shadow-lg)",
+              }}
+            >
+              <span className="text-3xl" aria-hidden>
+                🎉
+              </span>
+              <span className="text-lg font-bold" style={{ color: "var(--color-primary)" }}>
+                打卡成功
+              </span>
+              <span className="text-xs" style={{ color: "var(--color-text-secondary)" }}>
+                已连续 {celebrate.streak} 天，继续保持！
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ConfirmDialog
         open={confirmCancel !== null}

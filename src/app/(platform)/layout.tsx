@@ -21,11 +21,12 @@ export default async function PlatformLayout({ children }: { children: ReactNode
 
   const isGuest = "guest" in principal;
   const user = isGuest
-    ? { displayName: principal.guest.displayName, username: "guest", isGuest: true }
+    ? { displayName: principal.guest.displayName, username: "guest", isGuest: true, avatarUrl: null }
     : {
         displayName: principal.user.displayName ?? principal.user.username,
         username: principal.user.username,
         isGuest: false,
+        avatarUrl: principal.user.avatarUrl,
       };
 
   // 已登录：从 UserSetting 读取主题偏好（换设备登录后主题跟随，A-15）

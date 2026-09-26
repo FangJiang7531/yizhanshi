@@ -29,7 +29,17 @@ export type ModuleMeta = {
   group: "core" | "content" | "tools";
   description: string;
   requiresAuth: boolean;
+  /** 板块品牌色：导航高亮、页头图标渐变、快捷入口等（独立感来自内容与排版，不破坏主题） */
+  accent: string;
 };
+
+export function getModuleAccent(pathname: string): string {
+  return MODULES.find((m) => pathname === m.path || pathname.startsWith(`${m.path}/`))?.accent ?? "#6366F1";
+}
+
+export function getModuleMeta(pathname: string): ModuleMeta | undefined {
+  return MODULES.find((m) => pathname === m.path || pathname.startsWith(`${m.path}/`));
+}
 
 export const MODULES: ModuleMeta[] = [
   {
@@ -41,6 +51,7 @@ export const MODULES: ModuleMeta[] = [
     order: 1,
     group: "core",
     description: "今日待办、习惯状态与平台快捷入口",
+    accent: "#6366F1",
     requiresAuth: true,
   },
   {
@@ -52,6 +63,7 @@ export const MODULES: ModuleMeta[] = [
     order: 2,
     group: "core",
     description: "任务管理：搜索、过滤、优先级、标签与截止日期",
+    accent: "#0EA5E9",
     requiresAuth: true,
   },
   {
@@ -63,6 +75,7 @@ export const MODULES: ModuleMeta[] = [
     order: 3,
     group: "core",
     description: "建立习惯、每日打卡、连续天数与热力图",
+    accent: "#F97316",
     requiresAuth: true,
   },
   {
@@ -74,6 +87,7 @@ export const MODULES: ModuleMeta[] = [
     order: 4,
     group: "content",
     description: "Markdown 编辑、草稿、标签、评论与全文搜索",
+    accent: "#8B5CF6",
     requiresAuth: true,
   },
   {
@@ -85,6 +99,7 @@ export const MODULES: ModuleMeta[] = [
     order: 5,
     group: "content",
     description: "短链生成、自定义别名、二维码与点击统计",
+    accent: "#14B8A6",
     requiresAuth: true,
   },
   {
@@ -96,6 +111,7 @@ export const MODULES: ModuleMeta[] = [
     order: 6,
     group: "content",
     description: "链接收藏、标签整理、全文搜索与导入导出",
+    accent: "#EAB308",
     requiresAuth: true,
   },
   {
@@ -107,6 +123,7 @@ export const MODULES: ModuleMeta[] = [
     order: 7,
     group: "content",
     description: "创建问卷、多题型、逻辑跳转与结果导出",
+    accent: "#EC4899",
     requiresAuth: true,
   },
   {
@@ -118,6 +135,7 @@ export const MODULES: ModuleMeta[] = [
     order: 8,
     group: "tools",
     description: "视频解析与下载（bilidown / CCTVdown 服务化接入）",
+    accent: "#EF4444",
     requiresAuth: true,
   },
   {
@@ -129,6 +147,7 @@ export const MODULES: ModuleMeta[] = [
     order: 9,
     group: "tools",
     description: "Word / PDF 互转与在线增强预览",
+    accent: "#10B981",
     requiresAuth: true,
   },
 ];
@@ -142,6 +161,7 @@ export const COMING_SOON_MODULE: ModuleMeta = {
   order: 10,
   group: "core",
   description: "平台的扩展位：更多工具正在路上",
+  accent: "#A78BFA",
   requiresAuth: true,
 };
 

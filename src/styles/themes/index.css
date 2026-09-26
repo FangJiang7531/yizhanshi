@@ -327,6 +327,84 @@ body {
   background-size: 32px 32px;
 }
 
+/* ---------- 主题背景装饰（pointer-events:none，置于内容层之下） ---------- */
+
+/* 简约风：半透明几何图案 —— 大圆 + 细描边圆环 + 点阵 */
+[data-theme="minimal"] body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle at 86% -6%,
+      color-mix(in srgb, var(--color-primary) 9%, transparent) 0 150px, transparent 151px),
+    radial-gradient(circle at -8% 108%,
+      color-mix(in srgb, var(--color-accent) 7%, transparent) 0 190px, transparent 191px),
+    radial-gradient(circle at 68% 82%,
+      transparent 0 118px,
+      color-mix(in srgb, var(--color-primary) 10%, transparent) 119px 121px,
+      transparent 122px),
+    radial-gradient(color-mix(in srgb, var(--color-primary) 6%, transparent) 1.2px, transparent 1.4px);
+  background-size: auto, auto, auto, 26px 26px;
+}
+
+/* 科技风（深色）：渐变动态光 —— 双色光斑缓慢漂移 */
+[data-theme="tech"][data-mode="dark"] body::after {
+  content: "";
+  position: fixed;
+  inset: -25%;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(560px 420px at 22% 18%, rgba(0, 212, 255, 0.16), transparent 70%),
+    radial-gradient(680px 520px at 82% 82%, rgba(167, 139, 250, 0.14), transparent 70%),
+    radial-gradient(420px 320px at 70% 12%, rgba(56, 189, 248, 0.08), transparent 70%);
+  filter: blur(48px);
+  animation: tech-glow-drift 16s ease-in-out infinite alternate;
+}
+
+[data-theme="tech"][data-mode="light"] body::after {
+  content: "";
+  position: fixed;
+  inset: -25%;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(520px 400px at 24% 16%, rgba(14, 165, 233, 0.10), transparent 70%),
+    radial-gradient(620px 480px at 80% 84%, rgba(139, 92, 246, 0.08), transparent 70%);
+  filter: blur(56px);
+  animation: tech-glow-drift 18s ease-in-out infinite alternate;
+}
+
+@keyframes tech-glow-drift {
+  0% {
+    transform: translate3d(-2%, -1%, 0) scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: translate3d(2.5%, 2%, 0) scale(1.07);
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(-1%, 2.5%, 0) scale(1.02);
+    opacity: 0.9;
+  }
+}
+
+/* 植物绿：柔和叶片光斑 */
+[data-theme="botanical"][data-mode="dark"] body::before {
+  content: "";
+  position: fixed;
+  inset: -20%;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(480px 380px at 18% 24%, rgba(111, 169, 131, 0.10), transparent 70%),
+    radial-gradient(560px 460px at 84% 78%, rgba(196, 146, 106, 0.07), transparent 70%);
+  filter: blur(52px);
+}
+
 ::selection {
   background-color: var(--color-primary);
   color: var(--color-primary-fg);
@@ -468,6 +546,19 @@ body {
   border-color: var(--color-primary);
 }
 
+/* ---------- 液态玻璃面板 ---------- */
+.glass-panel {
+  background-color: color-mix(in srgb, var(--color-bg-surface) 72%, transparent);
+  backdrop-filter: blur(18px) saturate(1.5);
+  -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  border: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
+  /* 内侧高光描边：玻璃的“厚度感”，纯黑主题下替代阴影承担层次 */
+  box-shadow:
+    inset 1px 0 0 color-mix(in srgb, #ffffff 7%, transparent),
+    inset 0 1px 0 color-mix(in srgb, #ffffff 5%, transparent),
+    var(--shadow-sm);
+}
+
 /* ---------- 卡片 / 输入框 ---------- */
 .card {
   background-color: var(--color-bg-surface);
@@ -602,6 +693,38 @@ body {
 .check-draw path {
   stroke-dasharray: 24;
   animation: check-draw 400ms var(--ease-out) forwards;
+}
+
+/* ---------- 打卡成功徽标（卡通弹出） ---------- */
+@keyframes celebrate-pop {
+  0% { transform: scale(0.2) rotate(-10deg); opacity: 0; }
+  45% { transform: scale(1.18) rotate(4deg); opacity: 1; }
+  62% { transform: scale(0.94) rotate(-2deg); }
+  78% { transform: scale(1.05) rotate(1deg); }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+@keyframes celebrate-fade {
+  0%, 55% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-18px) scale(0.9); }
+}
+@keyframes celebrate-ring {
+  0% { transform: scale(0.35); opacity: 0.65; }
+  100% { transform: scale(1.7); opacity: 0; }
+}
+.celebrate-badge {
+  animation:
+    celebrate-pop 420ms var(--ease-spring) both,
+    celebrate-fade 620ms ease-in 1s forwards;
+}
+.celebrate-ring {
+  animation: celebrate-ring 760ms var(--ease-out) both;
+}
+@keyframes celebrate-spark {
+  0% { transform: translate(0, 0) scale(1); opacity: 1; }
+  100% { transform: translate(var(--spark-x), var(--spark-y)) scale(0.2); opacity: 0; }
+}
+.celebrate-spark {
+  animation: celebrate-spark 640ms var(--ease-out) both;
 }
 
 /* ---------- View Transitions（主题扩散 + 板块切换） ---------- */

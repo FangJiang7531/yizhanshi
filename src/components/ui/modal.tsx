@@ -7,6 +7,10 @@ import { createPortal } from "react-dom";
 /**
  * 对话框底层：遮罩淡入 + 内容 scale(0.96)→1（220ms）；关闭反向（180ms）。
  * Esc 关闭；移动端转为底部抽屉。焦点移入对话框并在关闭时归还。
+ *
+ * 关键实现约束：onClose 等回调经 ref 读取，effect 只依赖 `open` ——
+ * 否则父组件每次重渲染（如输入框逐字输入）都会重跑本 effect，
+ * 抢走正在输入的焦点（表现为“打一个字就停止输入”）。
  */
 export function Modal({
   open,
@@ -25,25 +29,30 @@ export function Modal({
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const prevFocusRef = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (!open) return;
     prevFocusRef.current = document.activeElement as HTMLElement | null;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") onCloseRef.current();
     };
     document.addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
-    // 焦点移入
-    window.setTimeout(() => {
-      panelRef.current?.querySelector<HTMLElement>("input, textarea, button, select")?.focus();
+    const focusTimer = window.setTimeout(() => {
+      // 优先聚焦文本输入控件，而非第一个按钮
+      panelRef.current
+        ?.querySelector<HTMLElement>("input, textarea, select")
+        ?.focus();
     }, 50);
     return () => {
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = "";
+      window.clearTimeout(focusTimer);
       prevFocusRef.current?.focus?.();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
@@ -60,7 +69,7 @@ export function Modal({
           backgroundColor: "rgba(0,0,0,0.45)",
           animation: "content-in var(--duration-base) var(--ease-out)",
         }}
-        onClick={onClose}
+        onClick={() => onCloseRef.current()}
         aria-hidden="true"
       />
       <div
@@ -71,13 +80,16 @@ export function Modal({
           border: "1px solid var(--color-border)",
           boxShadow: "var(--shadow-lg)",
           maxWidth: wide ? 640 : 480,
-          animationName: "pop-in",
-          animationDuration: "var(--duration-base)",
         }}
       >
         <div className="flex items-center justify-between border-b px-5 py-3.5">
           <h2 className="text-base font-semibold">{title}</h2>
-          <button type="button" className="icon-btn" onClick={onClose} aria-label="关闭对话框">
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={() => onCloseRef.current()}
+            aria-label="关闭对话框"
+          >
             <X size={16} />
           </button>
         </div>

@@ -14,6 +14,7 @@ export type TopbarUser = {
   displayName: string;
   username: string;
   isGuest: boolean;
+  avatarUrl?: string | null;
 };
 
 /**
@@ -62,14 +63,7 @@ export function Topbar({
   }
 
   return (
-    <header
-      className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b px-3 sm:px-4"
-      style={{
-        backgroundColor: "color-mix(in srgb, var(--color-bg-base) 88%, transparent)",
-        backdropFilter: "blur(10px)",
-        borderColor: "var(--color-border)",
-      }}
-    >
+    <header className="glass-panel sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-x-0 border-t-0 px-3 sm:px-4">
       <button
         type="button"
         className="icon-btn md:hidden"
@@ -88,19 +82,21 @@ export function Topbar({
         <div className="relative" ref={menuRef}>
           <button
             type="button"
-            className="flex items-center gap-2 rounded-full py-1 pl-1 pr-2.5 transition-colors"
-            style={{ backgroundColor: "var(--color-bg-elevated)" }}
+            className="flex items-center gap-2 rounded-full border py-1 pl-1 pr-2.5 transition-all hover:shadow-[var(--shadow-sm)]"
+            style={{
+              backgroundColor: "color-mix(in srgb, var(--color-bg-surface) 78%, transparent)",
+              borderColor: "color-mix(in srgb, var(--color-border) 70%, transparent)",
+            }}
             onClick={() => setMenuOpen((v) => !v)}
             aria-haspopup="menu"
             aria-expanded={menuOpen}
           >
-            <span
-              className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold"
-              style={{ backgroundColor: "var(--color-primary)", color: "var(--color-primary-fg)" }}
-              aria-hidden
-            >
-              {user.isGuest ? "访" : user.displayName.slice(0, 1).toUpperCase()}
-            </span>
+            <UserAvatarView
+              displayName={user.displayName}
+              avatarUrl={user.avatarUrl}
+              isGuest={user.isGuest}
+              size={28}
+            />
             <span className="hidden max-w-[110px] truncate text-sm sm:inline">
               {user.displayName}
             </span>
@@ -129,7 +125,7 @@ export function Topbar({
                 onClick={() => {
                   setMenuOpen(false);
                   if (user.isGuest) setGuestPrompt(true);
-                  else toast.info("个人资料页开发中");
+                  else router.push("/settings/profile");
                 }}
               />
               <MenuItem
@@ -163,6 +159,47 @@ export function Topbar({
         actionLabel="修改设置"
       />
     </header>
+  );
+}
+
+/** 头像：有图显示图片，否则回退到首字母圆形章 */
+export function UserAvatarView({
+  displayName,
+  avatarUrl,
+  isGuest,
+  size = 28,
+}: {
+  displayName: string;
+  avatarUrl?: string | null;
+  isGuest?: boolean;
+  size?: number;
+}) {
+  if (avatarUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- 头像走本地 API 路由，next/image 需额外域名配置
+      <img
+        src={avatarUrl}
+        alt=""
+        width={size}
+        height={size}
+        className="shrink-0 rounded-full object-cover"
+        style={{ width: size, height: size }}
+      />
+    );
+  }
+  return (
+    <span
+      className="flex shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+      style={{
+        width: size,
+        height: size,
+        background: "linear-gradient(135deg, var(--color-primary), var(--color-accent))",
+        color: "var(--color-primary-fg)",
+      }}
+      aria-hidden
+    >
+      {isGuest ? "访" : displayName.slice(0, 1).toUpperCase()}
+    </span>
   );
 }
 

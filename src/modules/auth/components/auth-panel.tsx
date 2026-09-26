@@ -9,13 +9,13 @@ import { useToast } from "@/components/feedback/toast";
 
 type Tab = "login" | "register";
 
-/** 密码强度：弱/中/强/很强 四档，并给出具体缺失项（PRD §6.2） */
+/** 密码强度：弱/中/强/很强 四档，并给出具体缺失项（密码规则：字母 + 数字即可，特殊字符与长度仅作增强建议） */
 function evaluatePassword(pw: string) {
   const checks = [
     { ok: pw.length >= 8, label: "至少 8 位" },
-    { ok: /[a-z]/.test(pw), label: "小写字母" },
-    { ok: /[A-Z]/.test(pw), label: "大写字母" },
-    { ok: /[0-9]/.test(pw), label: "数字" },
+    { ok: /[A-Za-z]/.test(pw), label: "包含字母" },
+    { ok: /[0-9]/.test(pw), label: "包含数字" },
+    { ok: pw.length >= 12, label: "12 位以上（更强）" },
     { ok: /[^A-Za-z0-9]/.test(pw), label: "特殊字符（建议）" },
   ];
   const passed = checks.filter((c) => c.ok).length;
@@ -328,7 +328,7 @@ function RegisterForm({ toast }: { toast: ReturnType<typeof useToast> }) {
             id="reg-password"
             className="input pr-10"
             type={showPw ? "text" : "password"}
-            placeholder="至少 8 位，含大小写字母与数字"
+            placeholder="至少 8 位，包含字母和数字"
             autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}

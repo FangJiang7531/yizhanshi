@@ -71,8 +71,11 @@ describe("认证 Schema（PRD §6.2 账号规则）", () => {
     it("65 位（超上限）被拒", () => {
       expect(passwordSchema.safeParse(TEST_PASS_TOO_LONG).success).toBe(false);
     });
-    it("缺大写字母被拒", () => {
-      expect(passwordSchema.safeParse(TEST_PASS_NO_UPPER).success).toBe(false);
+    it("缺大写字母的密码现在允许（规则放宽：字母 + 数字即可）", () => {
+      expect(passwordSchema.safeParse(TEST_PASS_NO_UPPER).success).toBe(true);
+    });
+    it("纯字母（无数字）被拒", () => {
+      expect(passwordSchema.safeParse("abcdefgH").success).toBe(false);
     });
   });
 

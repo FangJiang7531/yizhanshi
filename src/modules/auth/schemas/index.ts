@@ -22,12 +22,12 @@ export const usernameSchema = z
   .regex(/^[A-Za-z0-9_]+$/, "仅允许英文、数字、下划线")
   .refine((v) => !RESERVED_USERNAMES.includes(v.toLowerCase()), "该用户名为保留字");
 
+/** 密码：8–64 位，需同时包含字母与数字（产品决策：不强制大写/小写全品类，降低注册摩擦） */
 export const passwordSchema = z
   .string()
   .min(8, "密码至少 8 位")
   .max(64, "密码最多 64 位")
-  .regex(/[A-Z]/, "需包含大写字母")
-  .regex(/[a-z]/, "需包含小写字母")
+  .regex(/[A-Za-z]/, "需包含字母")
   .regex(/[0-9]/, "需包含数字");
 
 export const emailSchema = z.string().trim().toLowerCase().email("邮箱格式不正确").max(254);

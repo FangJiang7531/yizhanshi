@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronLeft, PanelLeftClose, PanelLeftOpen } from "lucide-react";
-import { useEffect, useState } from "react";
+import { PanelLeftClose, PanelLeftOpen, Sparkles } from "lucide-react";
 import {
   MODULES,
   MODULE_GROUP_LABELS,
@@ -18,9 +17,8 @@ const GROUPS: ModuleMeta["group"][] = ["core", "content", "tools"];
  *
  * 关键设计（PRD §3.3 / §9.1）：
  * - 外壳常驻：本组件位于 (platform)/layout.tsx，子路由切换时不重新挂载
- * - available=false 的板块显示「即将开放」小标签，点击跳转到占位页（不禁用，
- *   禁用会让用户以为功能坏了）
- * - 当前路由高亮，指示条带滑动过渡
+ * - 液态玻璃质感：半透明表面 + 背景模糊 + 高光描边（.glass-panel）
+ * - 高亮块内嵌于激活项内部（不靠 JS 测量定位），折叠/展开永不漂移
  * - 移动端转为抽屉
  */
 export function Sidebar({
@@ -36,19 +34,6 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
   const toast = useToast();
-  const [activeRect, setActiveRect] = useState<{ top: number; height: number } | null>(null);
-
-  // 高亮指示条位置：按当前路径计算
-  useEffect(() => {
-    const items = document.querySelectorAll<HTMLElement>("[data-nav-item]");
-    for (const el of items) {
-      if (el.dataset.active === "true") {
-        setActiveRect({ top: el.offsetTop, height: el.offsetHeight });
-        return;
-      }
-    }
-    setActiveRect(null);
-  }, [pathname, collapsed]);
 
   const active = MODULES.find((m) => pathname === m.path || pathname.startsWith(`${m.path}/`));
 
@@ -62,13 +47,8 @@ export function Sidebar({
         />
       )}
       <aside
-        className="fixed inset-y-0 left-0 z-50 flex flex-col border-r transition-[width,transform] duration-200 md:static md:translate-x-0"
-        style={{
-          width: collapsed ? 64 : 240,
-          backgroundColor: "var(--color-bg-surface)",
-          borderColor: "var(--color-border)",
-          transform: mobileOpen ? "translateX(0)" : undefined,
-        }}
+        className="glass-panel fixed inset-y-0 left-0 z-50 flex flex-col transition-[width,transform] duration-200 md:static md:translate-x-0"
+        style={{ width: collapsed ? 64 : 240, transform: mobileOpen ? "translateX(0)" : undefined }}
         data-mobile-open={mobileOpen}
         aria-label="主导航"
       >
@@ -76,30 +56,22 @@ export function Sidebar({
         <div className="flex h-14 shrink-0 items-center gap-2.5 px-4">
           <div
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-sm font-bold"
-            style={{ backgroundColor: "var(--color-primary)", color: "var(--color-primary-fg)" }}
+            style={{
+              background: "linear-gradient(135deg, var(--color-primary), var(--color-accent))",
+              color: "var(--color-primary-fg)",
+              boxShadow: "var(--shadow-sm)",
+            }}
             aria-hidden
           >
             台
           </div>
           {!collapsed && (
-            <span className="truncate text-sm font-semibold">个人数字工作台</span>
+            <span className="truncate text-sm font-semibold tracking-wide">个人数字工作台</span>
           )}
         </div>
 
         {/* 导航区 */}
-        <nav className="relative flex-1 overflow-y-auto px-2.5 py-2">
-          {activeRect && !collapsed && (
-            <span
-              aria-hidden
-              className="pointer-events-none absolute left-2.5 w-[calc(100%-20px)] rounded-[var(--radius-sm)] transition-all duration-200"
-              style={{
-                top: activeRect.top,
-                height: activeRect.height,
-                backgroundColor: "color-mix(in srgb, var(--color-primary) 12%, transparent)",
-              }}
-            />
-          )}
-
+        <nav className="flex-1 overflow-y-auto px-2.5 pb-2 pt-1">
           {GROUPS.map((group) => {
             const items = MODULES.filter((m) => m.group === group).sort((a, b) => a.order - b.order);
             if (items.length === 0) return null;
@@ -107,7 +79,7 @@ export function Sidebar({
               <div key={group} className="mb-3">
                 {!collapsed && (
                   <p
-                    className="px-2.5 pb-1 pt-2 text-[11px] font-medium uppercase tracking-wide"
+                    className="px-2.5 pb-1 pt-2 text-[11px] font-medium uppercase tracking-[0.12em]"
                     style={{ color: "var(--color-text-muted)" }}
                   >
                     {MODULE_GROUP_LABELS[group]}
@@ -122,19 +94,43 @@ export function Sidebar({
                       <li key={m.key}>
                         <Link
                           href={m.path}
-                          data-nav-item
                           data-active={isActive}
                           onClick={onCloseMobile}
                           title={collapsed ? m.name : undefined}
-                          className="group relative z-10 flex items-center gap-2.5 rounded-[var(--radius-sm)] px-2.5 py-2 text-sm transition-colors"
+                          aria-current={isActive ? "page" : undefined}
+                          className="group relative flex items-center gap-2.5 overflow-hidden rounded-[var(--radius-sm)] px-2.5 py-2 text-sm transition-all duration-200"
                           style={{
-                            color: isActive
-                              ? "var(--color-primary)"
-                              : "var(--color-text-secondary)",
+                            color: isActive ? "var(--color-text-primary)" : "var(--color-text-secondary)",
                             fontWeight: isActive ? 600 : 400,
+                            // 高亮块内嵌于激活项，折叠/展开永不漂移（修复指示块卡在两板块中间的问题）
+                            backgroundColor: isActive
+                              ? "color-mix(in srgb, " + m.accent + " 14%, transparent)"
+                              : "transparent",
                           }}
                         >
-                          <Icon size={17} className="shrink-0" aria-hidden />
+                          {/* 左侧指示条：激活时以品牌色亮起 */}
+                          <span
+                            aria-hidden
+                            className="absolute inset-y-1.5 left-0 w-[3px] rounded-full transition-all duration-200"
+                            style={{
+                              backgroundColor: isActive ? m.accent : "transparent",
+                              transform: isActive ? "scaleY(1)" : "scaleY(0.2)",
+                            }}
+                          />
+                          {/* 悬停时的品牌色染光 */}
+                          <span
+                            aria-hidden
+                            className="absolute inset-0 -z-10 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+                            style={{
+                              backgroundColor: "color-mix(in srgb, " + m.accent + " 7%, transparent)",
+                            }}
+                          />
+                          <Icon
+                            size={17}
+                            className="shrink-0 transition-colors"
+                            style={{ color: isActive ? m.accent : undefined }}
+                            aria-hidden
+                          />
                           {!collapsed && (
                             <>
                               <span className="flex-1 truncate">{m.name}</span>
@@ -165,16 +161,16 @@ export function Sidebar({
         {/* 底部：折叠开关 + 反馈入口 */}
         <div
           className="shrink-0 border-t p-2.5"
-          style={{ borderColor: "var(--color-border)" }}
+          style={{ borderColor: "color-mix(in srgb, var(--color-border) 60%, transparent)" }}
         >
           {!collapsed && (
             <button
               type="button"
-              className="mb-1 flex w-full items-center gap-2 rounded-[var(--radius-sm)] px-2.5 py-2 text-xs transition-colors"
+              className="mb-1 flex w-full items-center gap-2 rounded-[var(--radius-sm)] px-2.5 py-2 text-xs transition-colors hover:bg-[var(--color-bg-elevated)]"
               style={{ color: "var(--color-text-muted)" }}
               onClick={() => toast.info("感谢反馈！需求收集入口即将开放")}
             >
-              <SparkleIcon />
+              <Sparkles size={13} className="shrink-0" aria-hidden />
               想要什么功能？告诉我们 →
             </button>
           )}
@@ -191,8 +187,4 @@ export function Sidebar({
       </aside>
     </>
   );
-}
-
-function SparkleIcon() {
-  return <ChevronLeft size={13} className="shrink-0 rotate-180" aria-hidden />;
 }
