@@ -3,7 +3,20 @@ import { z } from "zod";
 /**
  * 环境变量集中校验（快速失败：配置不合法时立即终止启动，而非带病运行）。
  * 构建阶段（next build）与 CI 的纯打包步骤可通过 NEXT_PHASE / SKIP_ENV_VALIDATION 跳过。
+ *
+ * 约定：可选字段写空串（VAR=""）等同未配置 —— dotenv 会把 VAR="" 读成空字符串而非
+ * 删除该变量，因此对 optional 字段统一做空串归一化，避免 "Invalid URL" 之类的误报。
  */
+
+/** 空串归一化：'' → undefined（供 optional 字段使用） */
+function emptyToUndefined(value: unknown): unknown {
+  if (typeof value === "string" && value.trim() === "") return undefined;
+  return value;
+}
+
+const optionalUrl = z.preprocess(emptyToUndefined, z.string().url().optional());
+const optionalText = z.preprocess(emptyToUndefined, z.string().optional());
+
 const envSchema = z.object({
   DATABASE_URL: z
     .string()
@@ -15,13 +28,13 @@ const envSchema = z.object({
   APP_URL: z.string().url().default("http://localhost:3000"),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
-  MAIL_FROM: z.string().email().default("no-reply@workbench.local"),
+  MAIL_FROM: z.preprocess(emptyToUndefined, z.string().email().default("no-reply@workbench.local")),
   STORAGE_DRIVER: z.enum(["local", "s3"]).default("local"),
   STORAGE_LOCAL_DIR: z.string().default("./.storage"),
-  TOOL_SERVICE_DOWNLOADER_URL: z.string().url().optional(),
-  TOOL_SERVICE_DOCCONVERT_URL: z.string().url().optional(),
-  TOOL_SERVICE_TOKEN: z.string().optional(),
-  CRON_SECRET: z.string().optional(),
+  TOOL_SERVICE_DOWNLOADER_URL: optionalUrl,
+  TOOL_SERVICE_DOCCONVERT_URL: optionalUrl,
+  TOOL_SERVICE_TOKEN: optionalText,
+  CRON_SECRET: optionalText,
 });
 
 export type Env = z.infer<typeof envSchema>;
