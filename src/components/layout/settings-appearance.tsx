@@ -34,7 +34,7 @@ export function AppearanceSection() {
                 type="button"
                 onClick={() => {
                   setTheme(t.id as ThemeName);
-                  toast.success(`已切换到「${t.name}」`);
+                  toast("success", `已切换到「${t.name}」`);
                 }}
                 aria-pressed={selected}
                 className="group relative overflow-hidden rounded-[var(--radius)] border-2 p-0 text-left transition-all"

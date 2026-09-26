@@ -1,9 +1,11 @@
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { getPrincipal } from "@/lib/auth/session";
+import { prisma } from "@/lib/db";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { ToastProvider } from "@/components/feedback/toast";
 import { PlatformShell } from "@/components/layout/platform-shell";
+import { updateAppearanceAction } from "@/modules/auth/actions/settings-actions";
 import type { ThemeName, ColorMode } from "@/lib/theme/tokens";
 
 /**
@@ -26,11 +28,32 @@ export default async function PlatformLayout({ children }: { children: ReactNode
         isGuest: false,
       };
 
+  // 已登录：从 UserSetting 读取主题偏好（换设备登录后主题跟随，A-15）
+  const setting = isGuest
+    ? null
+    : await prisma.userSetting.findUnique({ where: { userId: principal.user.id } });
+
+  const initialTheme = setting?.themeName as ThemeName | undefined;
+  const initialMode = setting?.colorMode.toLowerCase() as ColorMode | undefined;
+  const initialMotion = setting?.motionEnabled;
+
+  const persistToServer = isGuest
+    ? undefined
+    : async (prefs: { themeName: string; colorMode: string; motionEnabled: boolean }) => {
+        await updateAppearanceAction({
+          themeName: prefs.themeName,
+          colorMode: prefs.colorMode.toUpperCase(),
+          motionEnabled: prefs.motionEnabled,
+        });
+      };
+
   return (
     <ToastProvider>
       <ThemeProvider
-        initialTheme={undefined as ThemeName | undefined}
-        initialMode={undefined as ColorMode | undefined}
+        initialTheme={initialTheme}
+        initialMode={initialMode}
+        initialMotion={initialMotion}
+        persistToServer={persistToServer}
       >
         <PlatformShell user={user}>{children}</PlatformShell>
       </ThemeProvider>

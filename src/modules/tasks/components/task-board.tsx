@@ -1,7 +1,7 @@
 "use client";
 
 import { Pencil, Plus, Search, Trash2, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/feedback/empty-state";
@@ -9,7 +9,7 @@ import { GuestPromptDialog } from "@/components/feedback/guest-prompt-dialog";
 import { useToast } from "@/components/feedback/toast";
 import { deleteTaskAction, toggleTaskAction } from "../actions/task-actions";
 import type { TaskDTO, TagDTO, TaskFilter } from "../types";
-import { TaskDialog, Spinner } from "./task-dialog";
+import { TaskDialog } from "./task-dialog";
 
 const FILTERS: { key: TaskFilter; label: string }[] = [
   { key: "today", label: "今天" },
@@ -41,7 +41,7 @@ export function TaskBoard({
   timezone: string;
   isGuest: boolean;
 }) {
-  const { toast } = useToast();
+  const toast = useToast();
   const router = useRouter();
 
   const [tasks, setTasks] = useState<TaskDTO[]>(initialTasks);

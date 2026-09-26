@@ -50,9 +50,14 @@ export function ThemeProvider({
   const [colorMode, setColorMode] = useState<ColorMode>(initialMode ?? DEFAULT_MODE);
   const [motionEnabled, setMotionEnabled] = useState<boolean>(initialMotion ?? true);
 
-  // 客户端挂载后从 localStorage 校正（访客/未持久化场景）
+  // 客户端挂载后校正：
+  // - 已登录（服务端注入了 UserSetting 值）→ 以服务端值为准并覆盖 DOM（换设备主题跟随，A-15）
+  // - 访客 → 从 localStorage 读取（与防闪烁脚本一致）
   useEffect(() => {
-    if (initialTheme && initialMode) return; // 已登录：服务端值优先
+    if (initialTheme && initialMode) {
+      applyToDom(initialTheme, initialMode);
+      return;
+    }
     const t = (localStorage.getItem(THEME_LS_KEY) as ThemeName | null) ?? DEFAULT_THEME;
     const m = (localStorage.getItem(MODE_LS_KEY) as ColorMode | null) ?? DEFAULT_MODE;
     const mo = localStorage.getItem(MOTION_LS_KEY);

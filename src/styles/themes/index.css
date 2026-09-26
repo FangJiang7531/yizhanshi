@@ -450,6 +450,24 @@ body {
   transform: scale(0.92);
 }
 
+/* ---------- 标签胶囊 ---------- */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 9999px;
+  border: 1px solid var(--color-border);
+  background-color: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  font-size: 12px;
+  padding: 3px 10px;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+.chip:hover {
+  border-color: var(--color-primary);
+}
+
 /* ---------- 卡片 / 输入框 ---------- */
 .card {
   background-color: var(--color-bg-surface);

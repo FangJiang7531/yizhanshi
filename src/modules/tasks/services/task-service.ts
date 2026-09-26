@@ -15,6 +15,7 @@ export const GUEST_DEMO_TASKS: TaskDTO[] = [
     completed: false,
     completedAt: null,
     dueAt: null,
+    dueLabel: null,
     priority: "MEDIUM",
     tags: [
       { id: "demo-tag-1", name: "演示", color: "#6366F1" },
@@ -30,6 +31,7 @@ export const GUEST_DEMO_TASKS: TaskDTO[] = [
     completed: false,
     completedAt: null,
     dueAt: null,
+    dueLabel: null,
     priority: "HIGH",
     tags: [{ id: "demo-tag-1", name: "演示", color: "#6366F1" }],
     createdAt: "2026-09-26T00:00:00.000Z",
@@ -42,6 +44,7 @@ export const GUEST_DEMO_TASKS: TaskDTO[] = [
     completed: true,
     completedAt: "2026-09-25T12:00:00.000Z",
     dueAt: null,
+    dueLabel: null,
     priority: "LOW",
     tags: [],
     createdAt: "2026-09-24T00:00:00.000Z",

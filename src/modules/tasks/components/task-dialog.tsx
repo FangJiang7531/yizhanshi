@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Modal } from "@/components/ui/modal";
 import type { TagDTO, TaskDTO } from "../types";
-import { createTaskAction, updateTaskAction, listTagsAction, createTagAction } from "../actions/task-actions";
+import { createTaskAction, updateTaskAction, createTagAction } from "../actions/task-actions";
 import { useToast } from "@/components/feedback/toast";
 
 const PRIORITY_OPTIONS = [
@@ -36,7 +36,7 @@ export function TaskDialog({
   onClose: () => void;
   onSaved: (task: TaskDTO, mode: "created" | "updated") => void;
 }) {
-  const { toast } = useToast();
+  const toast = useToast();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState<string>("");

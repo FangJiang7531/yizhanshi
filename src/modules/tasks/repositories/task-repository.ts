@@ -1,4 +1,4 @@
-import type { Prisma, PrismaClient, Task } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 import { prisma as defaultPrisma } from "@/lib/db";
 import type { DateStr } from "@/lib/date/timezone";
 import { fromZonedTime } from "date-fns-tz";
@@ -10,10 +10,6 @@ import type { TaskFilter } from "../types";
  */
 export function createTaskRepository(db: PrismaClient = defaultPrisma) {
   const includeTags = { tags: { include: { tag: true } } } satisfies Prisma.TaskInclude;
-
-  function serializeTags(task: Task & { tags: { tag: { id: string; name: string; color: string } }[] }) {
-    return task.tags.map((tt) => ({ id: tt.tag.id, name: tt.tag.name, color: tt.tag.color }));
-  }
 
   return {
     /**
@@ -92,8 +88,9 @@ export function createTaskRepository(db: PrismaClient = defaultPrisma) {
       return db.task.create({ data: { ...data, userId }, include: includeTags });
     },
 
+    /** 更新：以 userId 作用域写入（updateMany 兼作越权兜底；调用方随后 findById 取回完整实体） */
     update(userId: string, id: string, data: Partial<{ title: string; description: string | null; dueAt: Date | null; priority: "LOW" | "MEDIUM" | "HIGH"; completed: boolean; completedAt: Date | null }>) {
-      return db.task.update({ where: { id }, data, include: includeTags });
+      return db.task.updateMany({ where: { id, userId, deletedAt: null }, data });
     },
 
     /** 软删除 */
