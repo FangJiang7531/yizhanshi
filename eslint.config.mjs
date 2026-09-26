@@ -15,11 +15,15 @@ const eslintConfig = [
     ignores: [
       "node_modules/**",
       ".next/**",
+      ".next-e2e/**",
       "out/**",
       "build/**",
       "next-env.d.ts",
       "prisma/migrations/**",
       ".storage/**",
+      ".storage-test/**",
+      "test-results/**",
+      "playwright-report/**",
     ],
   },
   {

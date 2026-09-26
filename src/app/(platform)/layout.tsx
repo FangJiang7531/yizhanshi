@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { ToastProvider } from "@/components/feedback/toast";
 import { PlatformShell } from "@/components/layout/platform-shell";
-import { updateAppearanceAction } from "@/modules/auth/actions/settings-actions";
+import { persistAppearanceAction } from "@/modules/auth/actions/settings-actions";
 import type { ThemeName, ColorMode } from "@/lib/theme/tokens";
 
 /**
@@ -37,15 +37,8 @@ export default async function PlatformLayout({ children }: { children: ReactNode
   const initialMode = setting?.colorMode.toLowerCase() as ColorMode | undefined;
   const initialMotion = setting?.motionEnabled;
 
-  const persistToServer = isGuest
-    ? undefined
-    : async (prefs: { themeName: string; colorMode: string; motionEnabled: boolean }) => {
-        await updateAppearanceAction({
-          themeName: prefs.themeName,
-          colorMode: prefs.colorMode.toUpperCase(),
-          motionEnabled: prefs.motionEnabled,
-        });
-      };
+  // 直接传 Server Action 引用（Server Component → Client Component 不能传内联闭包）
+  const persistToServer = isGuest ? undefined : persistAppearanceAction;
 
   return (
     <ToastProvider>

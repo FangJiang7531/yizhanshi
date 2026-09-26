@@ -6,12 +6,21 @@ import { expect, test, type Page } from "@playwright/test";
  * 验证码获取：开发环境专用 /api/dev/last-code（需 E2E_CAPTURE_CODE=1，由 playwright.config.ts 注入）。
  */
 
-const suffix = Date.now().toString(36);
-const EMAIL = `e2e.${suffix}@test.local`;
-const USERNAME = `e2e_${suffix}`.slice(0, 20);
+let counter = 0;
 const PASSWORD = ["E2e", "Pass", "123"].join("");
 
+/** 每个用例注册独立账号（互不污染，也避免“邮箱已注册”冲突） */
+function uniqueCredentials() {
+  counter += 1;
+  const suffix = `${Date.now().toString(36)}${counter}`;
+  return {
+    EMAIL: `e2e.${suffix}@test.local`,
+    USERNAME: `e2e_${suffix}`.slice(0, 20),
+  };
+}
+
 async function registerAndLogin(page: Page, request: import("@playwright/test").APIRequestContext) {
+  const { EMAIL, USERNAME } = uniqueCredentials();
   await page.goto("/login");
   await page.getByRole("tab", { name: "注册" }).click();
 
@@ -58,7 +67,7 @@ test.describe("全链路用户旅程", () => {
     await registerAndLogin(page, request);
     await page.getByRole("link", { name: "任务清单" }).first().click();
 
-    await page.getByRole("button", { name: "新增任务" }).click();
+    await page.getByRole("button", { name: "新增任务" }).first().click();
     await page.getByLabel("标题").fill("E2E 任务一");
     await page.getByRole("button", { name: "创建", exact: true }).click();
     await expect(page.getByText("E2E 任务一")).toBeVisible();
@@ -75,7 +84,7 @@ test.describe("全链路用户旅程", () => {
     await registerAndLogin(page, request);
     await page.getByRole("link", { name: "习惯打卡" }).first().click();
 
-    await page.getByRole("button", { name: "新增习惯" }).click();
+    await page.getByRole("button", { name: "新增习惯" }).first().click();
     await page.getByLabel("名称").fill("E2E 阅读");
     await page.getByRole("button", { name: "创建", exact: true }).click();
     await expect(page.getByText("E2E 阅读")).toBeVisible();
@@ -110,7 +119,7 @@ test.describe("全链路用户旅程", () => {
     await expect(page).toHaveURL(/dashboard/);
 
     await page.getByRole("link", { name: "任务清单" }).first().click();
-    await page.getByRole("button", { name: "新增任务" }).click();
+    await page.getByRole("button", { name: "新增任务" }).first().click();
     await expect(page.getByText("访客模式无法保存数据")).toBeVisible();
     await page.getByRole("button", { name: "继续浏览" }).click();
   });

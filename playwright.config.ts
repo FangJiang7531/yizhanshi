@@ -30,6 +30,8 @@ export default defineConfig({
         timeout: 120_000,
         env: {
           E2E_CAPTURE_CODE: "1",
+          NEXT_DIST_DIR: ".next-e2e",
+          RATE_LIMIT_DISABLED: "1",
           DATABASE_URL:
             process.env.E2E_DATABASE_URL ??
             "postgresql://pwb:pwb_dev_password@localhost:5433/personal_workbench_dev",
