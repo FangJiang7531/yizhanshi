@@ -12,6 +12,7 @@ import { requireNonGuest } from "@/lib/auth/guards";
 import { fail, ok, type ActionResult } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { toLocalDateString } from "@/lib/date/timezone";
+import type { HabitDTO, ToggleLogResult } from "../types";
 
 /** 习惯控制器（Server Actions）：鉴权 → Zod → 服务层 → revalidate。 */
 
@@ -20,7 +21,7 @@ function revalidateHabitPages() {
   revalidatePath("/dashboard");
 }
 
-export async function createHabitAction(raw: unknown): Promise<ActionResult<unknown>> {
+export async function createHabitAction(raw: unknown): Promise<ActionResult<HabitDTO>> {
   try {
     const user = await requireNonGuest();
     const data = createHabitSchema.parse(raw);
@@ -34,14 +35,23 @@ export async function createHabitAction(raw: unknown): Promise<ActionResult<unkn
   }
 }
 
-export async function updateHabitAction(raw: unknown): Promise<ActionResult<unknown>> {
+export async function updateHabitAction(
+  raw: unknown,
+): Promise<ActionResult<HabitDTO>> {
   try {
     const user = await requireNonGuest();
     const data = updateHabitSchema.parse(raw);
     const service = createHabitService();
-    const result = await service.updateHabit({ userId: user.id }, data);
+    await service.updateHabit({ userId: user.id }, data);
     revalidateHabitPages();
-    return ok(result);
+    // 更新返回完整 DTO（含统计），供看板本地同步，避免仅靠 router.refresh() 造成的状态滞后
+    const list = await service.listHabits({
+      principal: { userId: user.id, isGuest: false },
+      today: toLocalDateString(new Date(), user.timezone),
+    });
+    const habit = list.find((h) => h.id === data.id);
+    if (!habit) return fail(new Error("习惯不存在或无权访问"));
+    return ok(habit);
   } catch (err) {
     logger.warn({ module: "habits", err: (err as Error).message }, "updateHabitAction");
     return fail(err);
@@ -75,7 +85,7 @@ export async function deleteHabitAction(raw: unknown): Promise<ActionResult<unkn
   }
 }
 
-export async function toggleHabitLogAction(raw: unknown): Promise<ActionResult<unknown>> {
+export async function toggleHabitLogAction(raw: unknown): Promise<ActionResult<ToggleLogResult>> {
   try {
     const user = await requireNonGuest();
     const data = toggleHabitLogSchema.parse(raw);

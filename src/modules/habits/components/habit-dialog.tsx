@@ -16,11 +16,15 @@ export function HabitDialog({
   habit,
   onClose,
   onSaved,
+  onRemoved,
 }: {
   open: boolean;
   habit: HabitDTO | null;
   onClose: () => void;
-  onSaved: () => void;
+  /** 保存成功回调：created 携带新 DTO 供看板本地插入；updated 携带最新 DTO 供就地替换 */
+  onSaved: (saved: HabitDTO, mode: "created" | "updated") => void;
+  /** 归档/删除成功回调：看板本地移除该习惯 */
+  onRemoved: () => void;
 }) {
   const toast = useToast();
   const [name, setName] = useState("");
@@ -62,7 +66,7 @@ export function HabitDialog({
         : await createHabitAction(payload);
       if (res.success) {
         toast("success", habit ? "习惯已更新" : "习惯已创建");
-        onSaved();
+        onSaved(res.data as HabitDTO, habit ? "updated" : "created");
         onClose();
       } else {
         toast("error", res.error.message);
@@ -80,7 +84,7 @@ export function HabitDialog({
     setConfirmArchive(false);
     if (res.success) {
       toast("success", "习惯已归档，历史数据已保留");
-      onSaved();
+      onRemoved();
       onClose();
     } else {
       toast("error", res.error.message);
@@ -95,7 +99,7 @@ export function HabitDialog({
     setConfirmDelete(false);
     if (res.success) {
       toast("success", "习惯已删除");
-      onSaved();
+      onRemoved();
       onClose();
     } else {
       toast("error", res.error.message);

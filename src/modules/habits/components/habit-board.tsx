@@ -237,7 +237,17 @@ export function HabitBoard({
         open={dialogOpen}
         habit={editing}
         onClose={() => setDialogOpen(false)}
-        onSaved={() => router.refresh()}
+        onSaved={(saved, mode) => {
+          // 本地即时同步（RSC props 无法驱动 useState 初始值，故不能只依赖 router.refresh）
+          setHabits((prev) =>
+            mode === "created" ? [saved, ...prev] : prev.map((x) => (x.id === saved.id ? saved : x)),
+          );
+          router.refresh();
+        }}
+        onRemoved={() => {
+          if (editing) setHabits((prev) => prev.filter((x) => x.id !== editing.id));
+          router.refresh();
+        }}
       />
 
       <GuestPromptDialog
