@@ -52,10 +52,19 @@ const eslintConfig = [
       "src/config/**",
       "scripts/**",
       "tests/**",
+      "prisma/seed.ts",
       "*.config.*",
     ],
     rules: {
       "no-console": "off",
+    },
+  },
+  {
+    // 集成测试的被测对象就是仓储层本身（验证 userId 作用域与约束），允许直接导入；
+    // src/ 业务代码仍严格执行跨模块禁令
+    files: ["tests/**"],
+    rules: {
+      "no-restricted-imports": "off",
     },
   },
 ];

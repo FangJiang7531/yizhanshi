@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { loginSchema, registerSchema, requestCodeSchema, verifyCodeSchema } from "../schemas";
 import { createAuthService, getRequestMeta } from "../services/auth-service";
+import { setSessionCookie } from "@/lib/auth/session";
 import { fail, ok, type ActionResult } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 
@@ -52,8 +53,9 @@ export async function registerAction(
 
     const service = createAuthService();
     const result = await service.register(data, { ...meta, timezone });
+    await setSessionCookie(result.sessionToken);
     revalidatePath("/", "layout");
-    return ok(result);
+    return ok({ id: result.id, username: result.username, email: result.email });
   } catch (err) {
     logger.warn({ module: "auth", err: (err as Error).message }, "registerAction");
     return fail(err);
@@ -68,8 +70,9 @@ export async function loginAction(
     const meta = await getRequestMeta();
     const service = createAuthService();
     const result = await service.login(data, meta);
+    await setSessionCookie(result.sessionToken);
     revalidatePath("/", "layout");
-    return ok(result);
+    return ok({ id: result.id, username: result.username, email: result.email });
   } catch (err) {
     logger.warn({ module: "auth", err: (err as Error).message }, "loginAction");
     return fail(err);

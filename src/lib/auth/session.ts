@@ -54,21 +54,34 @@ export function hashIp(ip: string | undefined): string | null {
   return createHash("sha256").update(`${ip}:${env.AUTH_SECRET}`).digest("hex");
 }
 
-/** 为正式用户创建数据库会话并写入 Cookie */
-export async function createUserSession(userId: string, meta: { userAgent?: string | null; ip?: string | null }) {
+/** 为正式用户创建数据库会话记录（纯 DB 操作，服务层可安全调用；Cookie 写入由控制器完成） */
+export async function createSessionRecord(
+  userId: string,
+  meta: { userAgent?: string | null; ip?: string | null },
+): Promise<string> {
   const sessionToken = randomBytes(32).toString("base64url");
-  const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
   await prisma.session.create({
     data: {
       sessionToken,
       userId,
-      expiresAt,
+      expiresAt: new Date(Date.now() + SESSION_TTL_MS),
       userAgent: meta.userAgent ?? null,
       ipHash: hashIp(meta.ip ?? undefined),
     },
   });
+  return sessionToken;
+}
+
+/** 控制器专用：把会话令牌写入 HttpOnly Cookie */
+export async function setSessionCookie(sessionToken: string) {
   const store = await cookies();
   store.set(SESSION_COOKIE, sessionToken, cookieOptions(SESSION_TTL_MS / 1000));
+}
+
+/** 为正式用户创建数据库会话并写入 Cookie（控制器便捷封装） */
+export async function createUserSession(userId: string, meta: { userAgent?: string | null; ip?: string | null }) {
+  const token = await createSessionRecord(userId, meta);
+  await setSessionCookie(token);
 }
 
 /** 进入访客模式：只写 Cookie，不写库（从根本上消除数据污染风险） */

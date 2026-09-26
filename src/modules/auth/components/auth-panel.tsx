@@ -6,7 +6,6 @@ import { Check, Eye, EyeOff, Loader2, Sparkles } from "lucide-react";
 import { loginAction, registerAction, requestCodeAction, verifyCodeAction } from "../actions/auth-actions";
 import { passwordSchema, usernameSchema } from "../schemas";
 import { useToast } from "@/components/feedback/toast";
-import { GuestPromptDialog } from "@/components/feedback/guest-prompt-dialog";
 
 type Tab = "login" | "register";
 
@@ -441,7 +440,6 @@ function ThirdPartySection({ toast }: { toast: ReturnType<typeof useToast> }) {
 function GuestEntry({ toast }: { toast: ReturnType<typeof useToast> }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
-  const [showPrompt, setShowPrompt] = useState(false);
 
   async function enter() {
     if (pending) return;
@@ -463,19 +461,11 @@ function GuestEntry({ toast }: { toast: ReturnType<typeof useToast> }) {
       <button
         type="button"
         className="btn btn-ghost text-sm"
-        onClick={() => setShowPrompt(true)}
+        onClick={() => void enter()}
         disabled={pending}
       >
-        先随便看看 → 访客模式
+        {pending ? "进入中…" : "先随便看看 → 访客模式"}
       </button>
-      <GuestPromptDialog
-        open={showPrompt}
-        onClose={() => setShowPrompt(false)}
-        onConfirm={() => {
-          setShowPrompt(false);
-          void enter();
-        }}
-      />
     </div>
   );
 }

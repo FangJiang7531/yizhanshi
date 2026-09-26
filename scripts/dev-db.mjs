@@ -131,4 +131,24 @@ if (!(await databaseExists(DB_NAME))) {
   }
 }
 
+// 集成测试库：与开发库同集群（tests/setup.ts 的 DATABASE_URL 指向它）
+const TEST_DB_NAME = "personal_workbench_test";
+if (!(await databaseExists(TEST_DB_NAME))) {
+  if (await createDatabase(TEST_DB_NAME)) {
+    console.log(`[db] 已创建数据库 ${TEST_DB_NAME}`);
+  }
+  // 测试库 schema 同步（与迁移同构，db push 幂等）
+  console.log(`[db] 同步 ${TEST_DB_NAME} schema …`);
+  const prismaCmd = process.platform === "win32" ? "npx.cmd" : "npx";
+  const r = spawnSync(prismaCmd, ["prisma", "db", "push", "--skip-generate"], {
+    stdio: "inherit",
+    shell: process.platform === "win32",
+    env: {
+      ...process.env,
+      DATABASE_URL: `postgresql://${USER}:${PASSWORD}@localhost:${PORT}/${TEST_DB_NAME}`,
+    },
+  });
+  if (r.status !== 0) console.warn("[db] 测试库 schema 同步失败（可稍后手动执行 npx prisma db push）");
+}
+
 console.log(`[db] 就绪：postgresql://${USER}:${PASSWORD}@localhost:${PORT}/${DB_NAME}`);

@@ -8,7 +8,7 @@ import {
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import {
   createGuestSession,
-  createUserSession,
+  createSessionRecord,
   destroyCurrentSession,
 } from "@/lib/auth/session";
 import { enforceRateLimit } from "@/lib/rate-limit";
@@ -74,9 +74,9 @@ export function createAuthService(userRepo: UserRepository = createUserRepositor
         timezone: meta.timezone,
       });
 
-      await createUserSession(user.id, meta);
+      const sessionToken = await createSessionRecord(user.id, meta);
       logger.info({ module: "auth", userId: user.id }, "user registered");
-      return { id: user.id, username: user.username, email: user.email };
+      return { id: user.id, username: user.username, email: user.email, sessionToken };
     },
 
     /**
@@ -103,9 +103,9 @@ export function createAuthService(userRepo: UserRepository = createUserRepositor
       }
 
       await userRepo.touchLogin(user.id);
-      await createUserSession(user.id, meta);
+      const sessionToken = await createSessionRecord(user.id, meta);
       logger.info({ module: "auth", userId: user.id }, "user logged in");
-      return { id: user.id, username: user.username, email: user.email };
+      return { id: user.id, username: user.username, email: user.email, sessionToken };
     },
 
     /** 访客模式：只写 Cookie，不写库 */

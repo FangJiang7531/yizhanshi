@@ -1,0 +1,46 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pwb
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_in_prod}
+      POSTGRES_DB: personal_workbench
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pwb -d personal_workbench"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://pwb:${POSTGRES_PASSWORD:-change_me_in_prod}@postgres:5432/personal_workbench
+      AUTH_SECRET: ${AUTH_SECRET:?请在环境或 .env 中提供至少 32 字符的 AUTH_SECRET}
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      MAIL_FROM: ${MAIL_FROM:-no-reply@workbench.local}
+      STORAGE_DRIVER: local
+      STORAGE_LOCAL_DIR: /app/.storage
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+    volumes:
+      - storage:/app/.storage
+
+  # 阶段三引入：缓存 / 队列 / 限流
+  # redis:
+  #   image: redis:7-alpine
+  #   restart: unless-stopped
+
+volumes:
+  pgdata:
+  storage:

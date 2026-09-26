@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: pwb
+          POSTGRES_PASSWORD: pwb_test_password
+          POSTGRES_DB: personal_workbench_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U pwb -d personal_workbench_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://pwb:pwb_test_password@localhost:5432/personal_workbench_test
+      AUTH_SECRET: ci-secret-0123456789abcdef0123456789abcdef
+      APP_URL: http://localhost:3000
+      LOG_LEVEL: error
+      MAIL_FROM: no-reply@workbench.local
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 类型检查（零错误门禁）
+        run: npx tsc --noEmit
+
+      - name: Lint（零 error 门禁）
+        run: npm run lint
+
+      - name: 生成 Prisma Client
+        run: npx prisma generate
+
+      - name: 应用迁移到测试库
+        run: npx prisma migrate deploy
+
+      - name: 单元测试（含 B 组边界用例）
+        run: npm run test:unit
+
+      - name: 集成测试（真实 PostgreSQL）
+        run: npm run test:integration
+
+      - name: 生产构建
+        run: npm run build

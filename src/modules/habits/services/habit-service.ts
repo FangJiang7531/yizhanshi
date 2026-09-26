@@ -195,9 +195,9 @@ export function createHabitService(habitRepo: HabitRepository = createHabitRepos
     },
 
     validateLogDate(logDate: string, today: string) {
-      // 允许补打昨天之前的记录吗？产品口径：允许任意过去日期补打，拒绝未来
+      // 允许补打过去日期（漏打卡补记），拒绝未来日期
       if (logDate > today) {
-        throw new ValidationError({ logDate: ["不能为未来的日期打卡"] });
+        throw new ValidationError({ logDate: ["不能为未来的日期打卡"] }, "不能为未来的日期打卡");
       }
     },
   };
