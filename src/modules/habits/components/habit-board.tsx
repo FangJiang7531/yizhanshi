@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { GuestPromptDialog } from "@/components/feedback/guest-prompt-dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/feedback/toast";
 import { toggleHabitLogAction } from "../actions/habit-actions";
 import type { HabitDTO, ToggleLogResult } from "../types";
@@ -92,6 +93,7 @@ export function HabitBoard({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<HabitDTO | null>(null);
   const [guestPrompt, setGuestPrompt] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState<HabitDTO | null>(null);
 
   function openCreate() {
     if (isGuest) {
@@ -111,11 +113,20 @@ export function HabitBoard({
     setDialogOpen(true);
   }
 
-  async function handleToggle(h: HabitDTO) {
+  function requestToggle(h: HabitDTO) {
     if (isGuest) {
       setGuestPrompt(true);
       return;
     }
+    // PRD §5.2.2：取消打卡需二次确认；打卡直接执行
+    if (h.checkedToday) {
+      setConfirmCancel(h);
+      return;
+    }
+    void handleToggle(h);
+  }
+
+  async function handleToggle(h: HabitDTO) {
     // 乐观更新 + 服务端切换（幂等 upsert），失败回滚并提示
     const optimistic: HabitDTO = {
       ...h,
@@ -147,6 +158,7 @@ export function HabitBoard({
         ? `打卡成功 · 连续 ${result.currentStreak} 天`
         : "已取消今日打卡",
     );
+    setConfirmCancel(null);
   }
 
   return (
@@ -217,7 +229,7 @@ export function HabitBoard({
                 <CheckinButton
                   checked={h.checkedToday}
                   color={h.color}
-                  onClick={() => void handleToggle(h)}
+                  onClick={() => requestToggle(h)}
                   label={h.checkedToday ? `取消打卡：${h.name}` : `打卡：${h.name}`}
                 />
               </div>
@@ -248,6 +260,19 @@ export function HabitBoard({
           if (editing) setHabits((prev) => prev.filter((x) => x.id !== editing.id));
           router.refresh();
         }}
+      />
+
+      <ConfirmDialog
+        open={confirmCancel !== null}
+        title="取消今日打卡"
+        message={`确定取消「${confirmCancel?.name ?? ""}」今日的打卡吗？连续天数与热力图将回退。`}
+        confirmText="确认取消"
+        cancelText="再想想"
+        danger
+        onConfirm={() => {
+          if (confirmCancel) void handleToggle(confirmCancel);
+        }}
+        onCancel={() => setConfirmCancel(null)}
       />
 
       <GuestPromptDialog

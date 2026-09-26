@@ -85,3 +85,72 @@ export async function persistAppearanceAction(prefs: {
     logger.warn({ module: "settings", err: (err as Error).message }, "persistAppearanceAction");
   }
 }
+
+/** 偏好设置：时区（写 User.timezone，影响问候语与“今日”口径）+ 每周起始日 + 语言 */
+const updatePreferencesSchema = z.object({
+  timezone: z
+    .string()
+    .min(1)
+    .max(64)
+    .refine(
+      (v) => {
+        try {
+          new Intl.DateTimeFormat("en-US", { timeZone: v });
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      { message: "时区不合法" },
+    ),
+  weekStartDay: z.union([z.literal(0), z.literal(1)]),
+  locale: z.enum(["zh-CN", "en-US"]),
+});
+
+export async function updatePreferencesAction(
+  raw: unknown,
+): Promise<ActionResult<{ saved: true }>> {
+  try {
+    const user = await requireNonGuest();
+    const data = updatePreferencesSchema.parse(raw);
+    await prisma.$transaction([
+      prisma.user.update({ where: { id: user.id }, data: { timezone: data.timezone } }),
+      prisma.userSetting.update({
+        where: { userId: user.id },
+        data: { weekStartDay: data.weekStartDay, locale: data.locale },
+      }),
+    ]);
+    revalidatePath("/", "layout");
+    return ok({ saved: true as const });
+  } catch (err) {
+    logger.warn({ module: "settings", err: (err as Error).message }, "updatePreferencesAction");
+    return fail(err);
+  }
+}
+
+/** 通知偏好：本期仅存偏好，不实际推送（PRD §1.3 明确边界） */
+const updateNotificationSchema = z.object({
+  notifyEmail: z.boolean(),
+  reminderTime: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "时间格式应为 HH:mm")
+    .nullable(),
+});
+
+export async function updateNotificationAction(
+  raw: unknown,
+): Promise<ActionResult<{ saved: true }>> {
+  try {
+    const user = await requireNonGuest();
+    const data = updateNotificationSchema.parse(raw);
+    await prisma.userSetting.update({
+      where: { userId: user.id },
+      data: { notifyEmail: data.notifyEmail, reminderTime: data.reminderTime },
+    });
+    revalidatePath("/settings");
+    return ok({ saved: true as const });
+  } catch (err) {
+    logger.warn({ module: "settings", err: (err as Error).message }, "updateNotificationAction");
+    return fail(err);
+  }
+}

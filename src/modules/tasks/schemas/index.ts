@@ -38,6 +38,12 @@ export const createTagSchema = z.object({
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "颜色格式不正确").default("#6366F1"),
 });
 
+export const reorderTasksSchema = z.object({
+  /** 拖拽后的完整任务 id 顺序（仅未完成区参与拖拽） */
+  ids: z.array(z.string().cuid()).min(1).max(200),
+});
+
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
 export type ListTasksInput = z.infer<typeof listTasksSchema>;
+export type ReorderTasksInput = z.infer<typeof reorderTasksSchema>;

@@ -46,7 +46,8 @@ export function createTaskRepository(db: PrismaClient = defaultPrisma) {
         db.task.findMany({
           where,
           include: includeTags,
-          orderBy: [{ completed: "asc" }, { dueAt: { sort: "asc", nulls: "last" } }, { createdAt: "desc" }],
+          // 手动排序优先（拖拽结果持久化在 sortOrder），同序次按创建时间倒序
+          orderBy: [{ completed: "asc" }, { sortOrder: "asc" }, { createdAt: "desc" }],
           skip: (params.page - 1) * params.pageSize,
           take: params.pageSize,
         }),
@@ -84,8 +85,29 @@ export function createTaskRepository(db: PrismaClient = defaultPrisma) {
       return db.task.findFirst({ where: { id }, include: includeTags });
     },
 
-    create(userId: string, data: { title: string; description: string | null; dueAt: Date | null; priority: "LOW" | "MEDIUM" | "HIGH" }) {
+    create(userId: string, data: { title: string; description: string | null; dueAt: Date | null; priority: "LOW" | "MEDIUM" | "HIGH"; sortOrder?: number }) {
       return db.task.create({ data: { ...data, userId }, include: includeTags });
+    },
+
+    /** 当前用户最小 sortOrder（新任务插到未完成区顶部用） */
+    async minSortOrder(userId: string): Promise<number> {
+      const rows = await db.task.aggregate({
+        where: { userId, deletedAt: null },
+        _min: { sortOrder: true },
+      });
+      return rows._min.sortOrder ?? 0;
+    },
+
+    /** 拖拽排序持久化：按传入顺序重写 sortOrder（事务内逐条更新，均带 userId 作用域） */
+    async reorder(userId: string, orderedIds: string[]) {
+      await db.$transaction(
+        orderedIds.map((id, index) =>
+          db.task.updateMany({
+            where: { id, userId, deletedAt: null },
+            data: { sortOrder: index },
+          }),
+        ),
+      );
     },
 
     /** 更新：以 userId 作用域写入（updateMany 兼作越权兜底；调用方随后 findById 取回完整实体） */

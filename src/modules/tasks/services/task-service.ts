@@ -122,11 +122,14 @@ export function createTaskService(taskRepo: TaskRepository = createTaskRepositor
         }
       }
       const dueAt = data.dueDate ? taskRepo.dueAtFromDateStr(data.dueDate, params.timezone) : null;
+      // 新任务插到未完成区顶部（手动排序体系内取最小值再减一）
+      const minOrder = await taskRepo.minSortOrder(params.userId);
       const task = await taskRepo.create(params.userId, {
         title: data.title,
         description: data.description ? data.description : null,
         dueAt,
         priority: data.priority,
+        sortOrder: minOrder - 1,
       });
       if (data.tagIds?.length) {
         await taskRepo.setTags(task.id, data.tagIds);
@@ -186,6 +189,12 @@ export function createTaskService(taskRepo: TaskRepository = createTaskRepositor
       if (!existing) throw new NotFoundError("任务不存在");
       await taskRepo.softDelete(params.userId, id);
       return { deleted: true };
+    },
+
+    /** 拖拽排序：按客户端给定的顺序持久化 sortOrder（仓储层逐条带 userId 作用域） */
+    async reorderTasks(params: { userId: string }, orderedIds: string[]): Promise<{ reordered: true }> {
+      await taskRepo.reorder(params.userId, orderedIds);
+      return { reordered: true };
     },
 
     async listTags(params: { userId: string | null; isGuest: boolean }) {

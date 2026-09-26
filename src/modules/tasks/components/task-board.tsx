@@ -7,7 +7,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { GuestPromptDialog } from "@/components/feedback/guest-prompt-dialog";
 import { useToast } from "@/components/feedback/toast";
-import { deleteTaskAction, toggleTaskAction } from "../actions/task-actions";
+import { deleteTaskAction, toggleTaskAction, reorderTasksAction } from "../actions/task-actions";
 import type { TaskDTO, TagDTO, TaskFilter } from "../types";
 import { TaskDialog } from "./task-dialog";
 
@@ -55,6 +55,9 @@ export function TaskBoard({
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [removingIds, setRemovingIds] = useState<Set<string>>(new Set());
   const [guestPrompt, setGuestPrompt] = useState(false);
+  // 拖拽排序：仅未完成区可拖；拖动项倾斜+阴影，目标项让位，松手持久化 sortOrder
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
 
   // 搜索防抖 300ms
   useEffect(() => {
@@ -117,8 +120,37 @@ export function TaskBoard({
     }
   }
 
-  async function handleDeleteConfirm() {
-    if (!deleting || deleteBusy) return;
+  /** 把被拖任务移到目标位置：先本地让位预览，松手后持久化到服务端 */
+  async function commitReorder(targetId: string) {
+    const sourceId = draggingId;
+    setDraggingId(null);
+    setDropTargetId(null);
+    if (!sourceId || sourceId === targetId) return;
+
+    const pending = tasks.filter((t) => !t.completed);
+    const from = pending.findIndex((t) => t.id === sourceId);
+    const to = pending.findIndex((t) => t.id === targetId);
+    if (from < 0 || to < 0) return;
+    const moved = pending[from];
+    if (!moved) return;
+
+    const reordered = [...pending];
+    reordered.splice(from, 1);
+    reordered.splice(to, 0, moved);
+    const reorderedIds = reordered.map((t) => t.id);
+
+    // 本地重排：未完成区按新顺序，已完成区保持原相对顺序排在后面
+    const completed = tasks.filter((t) => t.completed);
+    setTasks([...reordered, ...completed]);
+
+    const res = await reorderTasksAction({ ids: reorderedIds });
+    if (!res.success) {
+      toast("error", res.error.message);
+      router.refresh();
+    }
+  }
+
+  async function handleDeleteConfirm() {    if (!deleting || deleteBusy) return;
     setDeleteBusy(true);
     const target = deleting;
     setRemovingIds((prev) => new Set(prev).add(target.id));
@@ -269,6 +301,16 @@ export function TaskBoard({
               task={t}
               removing={removingIds.has(t.id)}
               today={today}
+              draggable={!isGuest && filter !== "completed" && !search}
+              dragging={draggingId === t.id}
+              dropTarget={dropTargetId === t.id && draggingId !== null && draggingId !== t.id}
+              onDragStart={() => setDraggingId(t.id)}
+              onDragEnd={() => {
+                setDraggingId(null);
+                setDropTargetId(null);
+              }}
+              onDragOverTask={() => setDropTargetId(t.id)}
+              onDropOnTask={() => void commitReorder(t.id)}
               onToggle={() => void handleToggle(t)}
               onEdit={() => openEdit(t)}
               onDelete={() => (guardGuest() ? undefined : setDeleting(t))}
@@ -320,6 +362,13 @@ function TaskRow({
   task,
   removing,
   today,
+  draggable,
+  dragging,
+  dropTarget,
+  onDragStart,
+  onDragEnd,
+  onDragOverTask,
+  onDropOnTask,
   onToggle,
   onEdit,
   onDelete,
@@ -328,6 +377,13 @@ function TaskRow({
   task: TaskDTO;
   removing: boolean;
   today: string;
+  draggable: boolean;
+  dragging: boolean;
+  dropTarget: boolean;
+  onDragStart: () => void;
+  onDragEnd: () => void;
+  onDragOverTask: () => void;
+  onDropOnTask: () => void;
   onToggle: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -340,8 +396,24 @@ function TaskRow({
 
   return (
     <div
-      className={`group flex items-center gap-3 px-4 py-3 transition-opacity ${removing ? "row-out" : "row-in"}`}
-      style={{ paddingLeft: "calc(var(--density-pad) + 4px)", paddingRight: "var(--density-pad)" }}
+      className={`group flex items-center gap-3 px-4 py-3 transition-all ${removing ? "row-out" : "row-in"}`}
+      style={{
+        paddingLeft: "calc(var(--density-pad) + 4px)",
+        paddingRight: "var(--density-pad)",
+        // 拖动项轻微倾斜 + 阴影加深（PRD §7.6 任务拖拽）
+        transform: dragging ? "rotate(-1.2deg) scale(1.01)" : undefined,
+        boxShadow: dragging ? "var(--shadow-lg)" : undefined,
+        opacity: dragging ? 0.92 : undefined,
+        backgroundColor: dropTarget ? "var(--color-bg-elevated)" : undefined,
+        borderTop: dropTarget ? "2px solid var(--color-primary)" : undefined,
+        zIndex: dragging ? 5 : undefined,
+        position: "relative",
+      }}
+      draggable={draggable}
+      onDragStart={draggable ? onDragStart : undefined}
+      onDragEnd={draggable ? onDragEnd : undefined}
+      onDragOver={draggable ? (e) => { e.preventDefault(); onDragOverTask(); } : undefined}
+      onDrop={draggable ? (e) => { e.preventDefault(); onDropOnTask(); } : undefined}
     >
       {/* 复选框：40×40 热区，SVG 描边绘制 */}
       <button

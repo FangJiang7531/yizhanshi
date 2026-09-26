@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createTaskSchema, updateTaskSchema, toggleTaskSchema, deleteTaskSchema, createTagSchema, listTasksSchema } from "../schemas";
+import { createTaskSchema, updateTaskSchema, toggleTaskSchema, deleteTaskSchema, createTagSchema, listTasksSchema, reorderTasksSchema } from "../schemas";
 import { createTaskService } from "../services/task-service";
 import { requireNonGuest } from "@/lib/auth/guards";
 import { getPrincipal } from "@/lib/auth/session";
@@ -95,8 +95,21 @@ export async function deleteTaskAction(raw: unknown): Promise<ActionResult<{ del
   }
 }
 
-export async function listTagsAction(): Promise<ActionResult<unknown>> {
+export async function reorderTasksAction(raw: unknown): Promise<ActionResult<{ reordered: true }>> {
   try {
+    const user = await requireNonGuest();
+    const data = reorderTasksSchema.parse(raw);
+    const service = createTaskService();
+    const result = await service.reorderTasks({ userId: user.id }, data.ids);
+    revalidateTaskPages();
+    return ok(result);
+  } catch (err) {
+    logger.warn({ module: "tasks", err: (err as Error).message }, "reorderTasksAction");
+    return fail(err);
+  }
+}
+
+export async function listTagsAction(): Promise<ActionResult<unknown>> {  try {
     const principal = await getPrincipal();
     if (!principal) return fail(new Error("UNAUTHORIZED"));
     const isGuest = "guest" in principal;

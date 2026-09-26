@@ -266,4 +266,27 @@ describe("任务模块 · 数据隔离与 CRUD", () => {
     expect(byDesc.total).toBe(1);
     expect(byDesc.items[0]?.title).toBe("无关任务");
   });
+
+  it("拖拽排序：按传入顺序持久化 sortOrder，且仅作用于本人任务", async () => {
+    const ua = uniqueUser("a");
+    const ub = uniqueUser("b");
+    const userA = await createUser(ua.username, ua.email);
+    const userB = await createUser(ub.username, ub.email);
+
+    const t1 = await taskService.createTask({ userId: userA.id, timezone: userA.timezone }, { title: "一", priority: "LOW", tagIds: [] });
+    const t2 = await taskService.createTask({ userId: userA.id, timezone: userA.timezone }, { title: "二", priority: "LOW", tagIds: [] });
+    const t3 = await taskService.createTask({ userId: userA.id, timezone: userA.timezone }, { title: "三", priority: "LOW", tagIds: [] });
+    const bTask = await taskService.createTask({ userId: userB.id, timezone: userB.timezone }, { title: "B 的任务", priority: "LOW", tagIds: [] });
+
+    // 拖拽为 三、一、二
+    await taskService.reorderTasks({ userId: userA.id }, [t3.id, t1.id, t2.id]);
+
+    const list = await taskService.listTasks({ principal: { userId: userA.id, isGuest: false }, timezone: userA.timezone, filter: "all" });
+    expect(list.items.map((t) => t.title)).toEqual(["三", "一", "二"]);
+
+    // 越权 reorder：B 把 A 的任务 id 混入自己的顺序 → A 的任务 sortOrder 不受影响（where 带 userId）
+    await taskService.reorderTasks({ userId: userB.id }, [bTask.id, t1.id, t2.id, t3.id]);
+    const listAAfter = await taskService.listTasks({ principal: { userId: userA.id, isGuest: false }, timezone: userA.timezone, filter: "all" });
+    expect(listAAfter.items.map((t) => t.title)).toEqual(["三", "一", "二"]);
+  });
 });
