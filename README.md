@@ -1,110 +1,290 @@
-# 一站式个人数字工作台
+# 一站式个人数字工作台（personal-workbench）
 
 一个**模块化、可长期生长**的个人数字工作台：今天有任务清单、习惯打卡与总览，明天可以长出博客、短链、问卷，而**用户永远只看到一个统一的网站**。
 
-> 详细架构与三份策划文档的梳理见 [`docs/架构设计说明.md`](./docs/架构设计说明.md)。
+| | |
+|---|---|
+| **你想直接使用** | → 看 [一、使用指南](#一使用指南普通用户) |
+| **你想在本地跑起来改代码** | → 看 [二、开发者指南](#二开发者指南) |
+| **你想部署一套完整服务** | → 看 [三、部署指南](#三部署指南完整全栈部署) |
 
-## 技术栈
+> 架构与策划文档梳理见 [`docs/架构设计说明.md`](./docs/架构设计说明.md)，第一阶段验收结论见 [`docs/test-report-v0.1.0.md`](./docs/test-report-v0.1.0.md)。
 
-Next.js 15（App Router）+ React 19 + TypeScript（strict）+ Tailwind CSS 4 + Prisma 6 + PostgreSQL + Zod + Vitest
+---
 
-## 快速开始
+## 功能总览
+
+| 板块 | 状态 | 能力 |
+|------|------|------|
+| 总览 `/dashboard` | ✅ 可用 | 问候语（按你所在时区）、今日完成统计、最长连续打卡、今日任务/习惯直达操作、全板块快捷入口 |
+| 任务清单 `/tasks` | ✅ 可用 | 新增/编辑/删除、今天·全部·已完成过滤、标题+描述搜索（命中高亮）、优先级、截止日期、彩色标签、拖拽排序 |
+| 习惯打卡 `/habits` | ✅ 可用 | 自建习惯（24 图标 / 12+自定义颜色 / 每周目标）、每日打卡、连续天数、完成率、当月热力图、归档 |
+| 设置 `/settings` | ✅ 可用 | 6 套主题 × 明暗（即时预览）、时区/每周起始日/语言、每日提醒偏好、关于 |
+| 博客 / 短链 / 书签 / 问卷 / 视频下载 / 文档转换 | 🔒 预留 | 路由与占位页就绪，展示开发进度与需求收集入口 |
+
+安全基线：Argon2id 密码哈希、数据库 Session（HttpOnly Cookie）、所有查询强制按用户隔离、注册/登录/发码限流、Zod 服务端校验。
+
+---
+
+## 一、使用指南（普通用户）
+
+### 1. 进入平台
+
+打开站点后你会先看到**登录页**，有三种进入方式：
+
+| 方式 | 适合 | 说明 |
+|------|------|------|
+| **访客模式**（「先随便看看」） | 想先体验 | 可浏览全部界面、切换板块与主题；任何写操作（如新增任务）会弹出说明对话框，注册后解锁 |
+| **注册新账号** | 首次使用 | 切到「注册」页签 → 填邮箱 → 点「获取验证码」→ 填 6 位验证码 → 设置用户名和密码 → 自动登录 |
+| **登录** | 老用户 | 邮箱**或**用户名 + 密码 |
+
+账号规则：用户名仅英文/数字/下划线（3–20 位，不分大小写）；密码至少 8 位且必须包含大写字母、小写字母和数字。
+
+> **验证码在哪里看？** 本阶段验证码通过服务端控制台发送（未接真实邮件服务）：本地开发直接打印在 `npm run dev` 的终端里；服务器部署时在容器日志中（见[部署指南 4.3](#43-注册验证码邮件的当前形态)）。
+
+### 2. 任务清单
+
+- **新增**：右上角「＋ 新增任务」，支持标题（必填）、描述（2000 字内）、截止日期（今天/明天/下周快捷键）、优先级（高/中/低）、标签（可现场新建并选颜色）。
+- **找任务**：顶部搜索框输入即过滤（匹配标题和描述，命中文字高亮）；「今天 / 全部 / 已完成」三个页签切换视图。
+- **完成任务**：点左侧复选框，划线置灰；再点恢复。
+- **整理**：按住任务行**拖拽**可调整顺序；悬停行出现「编辑 / 删除」图标，删除需二次确认。
+- **截止提醒**：截止日期显示「今天 / 明天 / M月D日」，逾期显示红色「已逾期」。
+
+### 3. 习惯打卡
+
+- **建习惯**：「＋ 新增习惯」，选颜色、图标、每周目标天数。
+- **打卡**：点卡片上「今日打卡」，按钮变实心 ✓、连续天数滚动递增、当月热力图对应格子亮起。重复点击不会产生重复记录。
+- **取消打卡**：点「✓ 已打卡」并二次确认，数字与热力图回退。
+- **看坚持**：🔥 连续 N 天（今天没打卡不算断，当天可补）、完成率（只按已过天数算）、当月热力图（悬停看每日状态）。
+- **归档 vs 删除**：归档=从列表隐藏但历史全保留；删除=不再展示（历史保留在库中）。
+
+### 4. 总览与设置
+
+- **总览**：第一眼看到今天要做什么——今日任务可直接勾选、今日习惯可直接打卡、两张统计卡片、全部板块快捷入口。
+- **设置**（右上角头像 → 设置）：6 套主题（米黄书页 / 科技感 / 植物绿 / 现代简约 / 纯白 / 纯黑）× 浅色/深色/跟随系统，改完立即生效并保存到账号；顶栏的太阳/月亮按钮一键切换明暗；偏好分区可改时区、每周起始日、语言。
+- 主题偏好跟随账号：换设备登录后自动恢复。
+
+---
+
+## 二、开发者指南
+
+### 2.1 环境要求
+
+- Node.js ≥ 20 LTS、npm ≥ 10
+- PostgreSQL 16（本地有 Docker 用 Docker；没有就用仓库自带内嵌 PostgreSQL）
+- 可选：Docker（完整部署用，见第三节）
+
+### 2.2 本地启动（5 步）
 
 ```bash
 # 1) 安装依赖
 npm install
 
 # 2) 配置环境变量
-cp .env.example .env        # 按需修改 AUTH_SECRET / DATABASE_URL 等
+cp .env.example .env        # 开发默认值即可跑通；AUTH_SECRET 可用 openssl rand -base64 32 生成
 
-# 3) 启动内嵌开发数据库（本机无 Docker 时的替代方案）
-npm run db:up               # Windows 中文系统下自动把 PG 二进制镜像到 ASCII 路径规避 initdb 编码崩溃
+# 3) 启动数据库（两种方式二选一）
+npm run db:up               # 方式 A：内嵌 PostgreSQL 17（免安装，推荐个人开发机）
+# docker run -d --name pwb-postgres-dev \
+#   -e POSTGRES_USER=pwb -e POSTGRES_PASSWORD=pwb_dev_password \
+#   -e POSTGRES_DB=personal_workbench_dev -p 5433:5432 postgres:16-alpine   # 方式 B：Docker
 
-# 4) 应用数据库迁移
-npm run db:migrate
+# 4) 建表 + 灌演示数据（可选）
+npm run db:migrate          # 执行 prisma migrate dev
+npm run db:seed             # 演示账号：demo@example.com / Demo1234（用户名 demo）
 
-# 5) 灌入演示数据（可选）
-npm run db:seed             # 演示账号 demo@example.com / Demo1234（用户名 demo）
-
-# 6) 启动开发服务器
+# 5) 启动开发服务器
 npm run dev                 # http://localhost:3000
 ```
 
-## 环境变量
+> **Windows 中文系统**：`db:up` 会自动把 PostgreSQL 二进制镜像到 `%USERPROFILE%\.pwb-pg-bin`（ASCII 路径）再启动——PostgreSQL 二进制路径含非 ASCII 字符时 initdb 会因 GBK 编码错乱崩溃，脚本已内置规避。数据目录在 `%USERPROFILE%\.pwb-pgdata`。
 
-| 变量 | 必填 | 说明 |
-|------|------|------|
-| `DATABASE_URL` | ✅ | PostgreSQL 连接串 |
-| `AUTH_SECRET` | ✅ | ≥32 字符（`openssl rand -base64 32` 生成）；用于会话/验证码 HMAC 签名 |
-| `APP_URL` | ✅ | 应用对外地址（默认 http://localhost:3000） |
-| `LOG_LEVEL` |  | debug / info / warn / error（默认 info） |
-| `MAIL_FROM` |  | 发件人地址；开发环境验证码直接打印到服务端控制台 |
-| `STORAGE_DRIVER` / `STORAGE_LOCAL_DIR` |  | 存储抽象（local / s3），本期实现本地磁盘适配器 |
-| `TOOL_SERVICE_DOWNLOADER_URL` / `TOOL_SERVICE_DOCCONVERT_URL` / `TOOL_SERVICE_TOKEN` |  | 阶段六存量工具服务接入（本期仅接口） |
-| `CRON_SECRET` |  | 定时任务端点鉴权 |
-
-配置由 `src/config/env.ts` 用 Zod 集中校验，缺失或非法时启动即退出（快速失败）。
-
-## Docker 部署
-
-```bash
-cd docker
-AUTH_SECRET=$(openssl rand -base64 32) docker compose up -d --build
-curl http://localhost:3000/api/health    # {"status":"ok"}（/api/ready 会检查数据库连通性）
-```
-
-多阶段构建（deps → builder → runner），基于 node:20-alpine、非 root 用户运行、`output: standalone`；容器入口自动执行 `prisma migrate deploy`。
-
-## 常用脚本
+### 2.3 常用脚本
 
 | 命令 | 作用 |
 |------|------|
-| `npm run dev` | 开发服务器 |
-| `npm run build` / `npm run start` | 生产构建 / 启动 |
-| `npm run verify` | **质量门禁**：typecheck + lint + 单元测试 |
-| `npm run typecheck` | tsc 类型检查 |
-| `npm run lint` | ESLint |
-| `npm run test:unit` | 单元测试（纯函数 / Schema） |
-| `npm run db:up` / `db:down` | 启停内嵌开发数据库 |
-| `npm run db:migrate` / `db:deploy` | 迁移（开发 / 生产） |
-| `npm run db:studio` | Prisma Studio |
+| `npm run dev` / `build` / `start` | 开发 / 生产构建 / 生产启动 |
+| `npm run verify` | **质量门禁**：typecheck + lint + 单元测试（提交前必须全绿） |
+| `npm run typecheck` / `lint` | 单项检查 |
+| `npm run test:unit` | 单元测试（streak 边界 / 时区 / Schema） |
+| `npm run test:integration` | 集成测试（真实 PostgreSQL：隔离/软删除/幂等/级联） |
+| `npm run test:e2e` | Playwright 端到端（CI 用；本机推荐 `node scripts/e2e-isolated.mjs`，见下） |
+| `node scripts/e2e-isolated.mjs` | 逐用例隔离 E2E 驱动（规避本机驱动偶发冻结；需先起 dev 服务器） |
+| `npm run db:up` / `db:down` | 内嵌数据库启停（自动建 dev + test 两个库并同步 schema） |
+| `npm run db:migrate` / `db:deploy` | 迁移（开发交互式 / 生产只执行已提交迁移） |
+| `npm run db:seed` / `db:studio` | 种子数据 / Prisma Studio |
 
-## 目录结构
+### 2.4 测试体系
+
+```bash
+npm run verify              # 提交前门禁
+npm run test:integration    # 真实 PostgreSQL（测试库由 db:up 自动创建）
+node scripts/e2e-isolated.mjs   # E2E：注册→登录→任务→习惯→总览→主题→访客限制
+```
+
+- 单测 67 条：streak 三口径固定数据集（B-01~B-10）、时区（B-11/B-12）、Zod Schema；
+- 集成 29 条：跨用户隔离、越权（读/写/删/挂标签/排序）、软删除、分页、打卡幂等、级联、Argon2id、拖拽排序；
+- E2E 7 段：全链路用户旅程（验证码走开发专用捕获端点 `/api/dev/last-code`，仅在 `NODE_ENV=development && E2E_CAPTURE_CODE=1` 时启用）。
+
+### 2.5 目录结构与扩展纪律
 
 ```
 src/
 ├─ app/                     # 路由层：(auth) 认证、(platform) 平台外壳、api 探针
-├─ components/              # 跨模块共享 UI
-├─ config/                  # modules.ts 模块注册表、env.ts 环境校验
-├─ lib/                     # 基础设施（auth/date/db/errors/logger/…）
-├─ modules/                 # 业务模块：actions/services/repositories/schemas/components
-│  └─ _template/            # 新增模块骨架
-└─ styles/themes/           # 12 组语义化主题变量
+├─ components/              # 跨模块共享 UI（ui/layout/theme/feedback）
+├─ config/                  # modules.ts 模块注册表、env.ts 环境校验、version.ts
+├─ lib/                     # 基础设施：errors/logger/db/auth/date/mail/storage/jobs/rate-limit/tools
+├─ modules/                 # 业务模块：actions / services / repositories / schemas / components
+│  ├─ auth/ tasks/ habits/ analytics/
+│  └─ _template/            # 新增模块脚手架（复制即用）
+└─ styles/themes/           # 6 主题 × 明暗语义变量表
+tests/{unit,integration,e2e}/
+docker/{Dockerfile,entrypoint.sh,docker-compose.yml}
+prisma/{schema.prisma,migrations/,seed.ts}
 ```
 
-## 架构纪律
+四条不可协商的纪律（ESLint/评审强制）：
 
-1. **分层**：表现层 → 控制器层（Server Actions）→ 服务层 → 仓储层（Prisma）。
-2. **服务层不依赖 HTTP 上下文**，`userId` / `timezone` 由控制器显式传入，可被单测直接驱动。
-3. **数据隔离结构化保障**：所有业务查询第一个参数必须是 `userId`；不存在与越权同返回 `null`，不泄漏资源存在性。
-4. **新增板块 = 改 `src/config/modules.ts` + 新增模块目录**。
+1. **新增板块 = 改 `src/config/modules.ts` + 复制 `_template/`**，侧边栏/占位页/快捷入口自动生效；
+2. **服务层不碰 HTTP 上下文**（无 `cookies()/headers()`），`userId`/`timezone` 由控制器显式传入，保证可单测；
+3. **所有业务查询首参 `userId`**；「不存在」与「不属于你」统一 404，不泄漏存在性；
+4. **组件只用 `--color-*` 语义变量**，禁止硬编码色值（纯黑主题依赖这一点）。
 
-## 质量门禁
+---
+
+## 三、部署指南（完整全栈部署）
+
+架构：**Nginx（TLS/反代）→ Next.js standalone 容器 → PostgreSQL 16 容器**，单机 Docker Compose 一键拉起。
+
+### 3.1 准备服务器与配置
+
+要求：2C4G 起的 Linux 服务器（Ubuntu/Debian 均可）、已安装 Docker 与 Docker Compose 插件、一个解析到服务器的域名（HTTPS 需要）。
 
 ```bash
-npm run verify            # typecheck + lint + 单元测试，必须全绿才能提交
-npm run test:integration  # 集成测试：真实 PostgreSQL（隔离/软删除/幂等打卡/级联/Argon2id）
-npm run test:e2e          # Playwright：注册→登录→建任务→勾选→建习惯→打卡→总览→切主题
+# 在项目根目录创建部署环境文件（不入库）
+cat > docker/.env <<'EOF'
+POSTGRES_PASSWORD=换成强密码
+AUTH_SECRET=换成openssl生成的32位以上随机串
+APP_URL=https://workbench.example.com
+EOF
+# 生成 AUTH_SECRET：openssl rand -base64 32
+chmod 600 docker/.env
 ```
 
-当前：typecheck 0 错误 · lint 0 error · 单测 67 条（streak 边界 B-01~B-10 / 时区 B-11、B-12 / Zod Schema）· 集成 28 条（跨用户隔离 C-01、C-02 / 打卡幂等 B-13 / 密码存储 A-05）。
+### 3.2 构建并启动
+
+```bash
+cd docker
+docker compose up -d --build
+
+# 验证
+curl http://127.0.0.1:3000/api/health   # {"status":"ok"}          liveness
+curl http://127.0.0.1:3000/api/ready    # {"status":"ok","db":"connected"}  readiness（查库）
+docker compose logs -f app              # 观察启动：等库就绪 → prisma migrate deploy → server 启动
+```
+
+说明：
+
+- 镜像为多阶段构建（deps → builder → runner），基于 `node:20-alpine`、非 root 用户运行、`output: "standalone"`；
+- 容器入口（`docker/entrypoint.sh`）会等数据库就绪后自动执行 `prisma migrate deploy`，升级时无需手工迁移；
+- 数据持久化在 `pgdata` 卷，应用文件在 `storage` 卷。
+
+### 3.3 注册验证码邮件的当前形态
+
+**本阶段邮件为控制台适配器**：用户请求验证码后，验证码打印在应用容器日志中，不发送真实邮件。生产获取方式：
+
+```bash
+docker compose logs app | grep "验证码"
+# 形如：你的注册验证码是：123456（5 分钟内有效）
+```
+
+接入真实邮件（Resend/SMTP）的扩展点已就位：实现 `src/lib/mail/index.ts` 的 `MailAdapter` 接口并替换导出即可，业务代码零改动。在接入前，小团队可由管理员从日志转告用户验证码。
+
+### 3.4 HTTPS 与反向代理（Nginx）
+
+应用自身已输出基础安全响应头（`X-Content-Type-Options`、`X-Frame-Options`、`Referrer-Policy`）。生产建议再套一层 Nginx 做 TLS 终止：
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name workbench.example.com;
+
+    ssl_certificate     /etc/letsencrypt/live/workbench.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/workbench.example.com/privkey.pem;
+
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+server {
+    listen 80;
+    server_name workbench.example.com;
+    return 301 https://$host$request_uri;
+}
+```
+
+证书可用 Let's Encrypt：`certbot --nginx -d workbench.example.com`。同时在防火墙仅放行 80/443（3000 端口与 5432 不要暴露公网）。
+
+### 3.5 数据备份与恢复
+
+```bash
+# 每日备份（crontab 示例，每天 03:00；-T 让 pg_dump 可在 cron 中运行）
+0 3 * * * cd /path/to/personal-workbench/docker && docker compose exec -T postgres pg_dump -U pwb personal_workbench | gzip > /var/backups/pwb-$(date +\%F).sql.gz
+
+# 恢复
+gunzip -c /var/backups/pwb-2026-09-27.sql.gz | docker compose exec -T postgres psql -U pwb -d personal_workbench
+```
+
+### 3.6 升级与回滚
+
+```bash
+# 升级（迁移在容器启动时自动执行，只追加、已验证）
+git pull
+cd docker && docker compose up -d --build
+
+# 回滚：切回上一个镜像/提交后重建
+git checkout <上一版本tag>
+docker compose up -d --build
+```
+
+> 生产纪律：升级前先备份；迁移文件只允许追加；`AUTH_SECRET` 一旦使用不可更换（否则全部会话与验证码失效）。
+
+### 3.7 生产环境变量一览
+
+| 变量 | 必填 | 说明 |
+|------|------|------|
+| `DATABASE_URL` | ✅ | PostgreSQL 连接串（compose 内自动组装） |
+| `AUTH_SECRET` | ✅ | ≥32 字符随机串；用于会话/验证码 HMAC 签名，泄露=全部会话可伪造 |
+| `APP_URL` | ✅ | 对外访问地址（https://…），影响链接生成与回调 |
+| `POSTGRES_PASSWORD` | ✅ | compose 中 Postgres 容器密码（**务必替换默认值**） |
+| `LOG_LEVEL` |  | debug / info / warn / error（生产建议 info） |
+| `MAIL_FROM` |  | 发件人地址（接真实邮件服务后生效） |
+| `STORAGE_DRIVER` / `STORAGE_LOCAL_DIR` |  | 存储抽象（local / s3），本期实现本地磁盘适配器 |
+| `TOOL_SERVICE_*` / `CRON_SECRET` |  | 阶段六工具服务接入与定时端点鉴权 |
+
+所有配置由 `src/config/env.ts` 用 Zod 集中校验，缺失或非法时**启动即退出**（快速失败），不会带病运行。
+
+---
 
 ## 常见问题
 
 | 问题 | 处置 |
 |------|------|
-| Windows 下 `db:up` initdb 失败 | 脚本已自动镜像二进制到 `%USERPROFILE%\.pwb-pg-bin`（ASCII 路径）；数据目录在 `%USERPROFILE%\.pwb-pgdata` |
-| 端口 5433 被占用 | `DEV_DB_PORT=5434 npm run db:up`，并同步修改 `.env` 的 `DATABASE_URL` |
-| 集成测试报「测试库不可用」 | 先运行 `npm run db:up`（会创建 `personal_workbench_test` 并同步 schema） |
+| Windows 下 `db:up` initdb 失败 | 脚本已自动镜像二进制到 `%USERPROFILE%\.pwb-pg-bin`；若仍失败确认该目录可写 |
+| 端口 5433 / 3000 被占用 | 数据库：`DEV_DB_PORT=5434 npm run db:up` 并同步 `.env`；应用：`npm run dev -- -p 3001` |
+| 集成测试报「测试库不可用」 | 先 `npm run db:up`（自动创建 `personal_workbench_test` 并同步 schema） |
 | 主题切换没有扩散动画 | 浏览器不支持 View Transitions 或系统开启「减少动态效果」，自动降级为瞬时切换 |
 | 登录提示「邮箱/用户名或密码错误」 | 有意统一文案（防账号枚举），请核对凭据 |
+| 收不到验证码 | 本阶段验证码走服务端控制台/容器日志（见 3.3），后续阶段接入真实邮件服务 |
+| 登录后跳回登录页 | 检查 `AUTH_SECRET` 是否与发会话时一致（更换后旧会话全部失效） |
+
+## 许可证
+
+MIT
