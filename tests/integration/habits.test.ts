@@ -167,6 +167,31 @@ describe("习惯模块 · 打卡幂等与数据隔离", () => {
     expect(await prisma.habitLog.count({ where: { habitId: habit.id } })).toBe(1);
   });
 
+  it("恢复归档：习惯回到主列表，历史打卡数据完整保留", async () => {
+    const u = uniqueUser("a");
+    const user = await createUser(u.username, u.email);
+    const habit = await habitService.createHabit(
+      { userId: user.id },
+      { name: "暂停一段", color: "#4A7C59", icon: "sprout", targetPerWeek: 7 },
+    );
+    await habitRepo.upsertLog(habit.id, user.id, previousDay(TODAY));
+
+    // 归档 → 主列表消失、出现在归档列表
+    await habitService.archiveHabit({ userId: user.id }, habit.id, true);
+    const activeAfterArchive = await habitService.listHabits({ principal: { userId: user.id, isGuest: false }, today: TODAY });
+    const archived = await habitService.listArchivedHabits({ userId: user.id });
+    expect(activeAfterArchive).toHaveLength(0);
+    expect(archived.map((h) => h.id)).toContain(habit.id);
+
+    // 恢复 → 主列表回来，历史打卡保留
+    await habitService.archiveHabit({ userId: user.id }, habit.id, false);
+    const activeAfterRestore = await habitService.listHabits({ principal: { userId: user.id, isGuest: false }, today: TODAY });
+    expect(activeAfterRestore.map((h) => h.id)).toContain(habit.id);
+    expect(await prisma.habitLog.count({ where: { habitId: habit.id } })).toBe(1);
+    const archivedAfter = await habitService.listArchivedHabits({ userId: user.id });
+    expect(archivedAfter.map((h) => h.id)).not.toContain(habit.id);
+  });
+
   it("软删除习惯：列表消失，历史记录保留在库中（PRD §5.2.3 语义）", async () => {
     const u = uniqueUser("a");
     const user = await createUser(u.username, u.email);

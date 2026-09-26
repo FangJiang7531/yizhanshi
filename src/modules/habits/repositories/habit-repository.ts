@@ -15,6 +15,14 @@ export function createHabitRepository(db: PrismaClient = defaultPrisma) {
       });
     },
 
+    /** 已归档（未删除）习惯：归档管理区展示与恢复用 */
+    listArchived(userId: string) {
+      return db.habit.findMany({
+        where: { userId, deletedAt: null, archivedAt: { not: null } },
+        orderBy: { archivedAt: "desc" },
+      });
+    },
+
     findById(userId: string, habitId: string) {
       return db.habit.findFirst({ where: { id: habitId, userId, deletedAt: null } });
     },

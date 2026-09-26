@@ -1,13 +1,13 @@
 "use client";
 
-import { MoreHorizontal, Plus } from "lucide-react";
+import { Archive, ArchiveRestore, LayoutGrid, List, MoreHorizontal, Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { GuestPromptDialog } from "@/components/feedback/guest-prompt-dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/feedback/toast";
-import { toggleHabitLogAction } from "../actions/habit-actions";
+import { toggleHabitLogAction, unarchiveHabitAction } from "../actions/habit-actions";
 import type { HabitDTO, ToggleLogResult } from "../types";
 import { HabitDialog } from "./habit-dialog";
 import { HabitHeatmap } from "./heatmap";
@@ -77,24 +77,42 @@ function RollingNumber({ value }: { value: number }) {
   return <>{display}</>;
 }
 
-/** 习惯看板（PRD §5.2） */
+/** 习惯看板（PRD §5.2）：卡片/列表双视图 + 归档管理区 */
 export function HabitBoard({
   initialHabits,
+  archivedHabits: initialArchived,
   today,
   isGuest,
 }: {
   initialHabits: HabitDTO[];
+  archivedHabits: HabitDTO[];
   today: string;
   isGuest: boolean;
 }) {
   const toast = useToast();
   const router = useRouter();
   const [habits, setHabits] = useState<HabitDTO[]>(initialHabits);
+  const [archivedHabits, setArchivedHabits] = useState<HabitDTO[]>(initialArchived);
+  const [view, setView] = useState<"card" | "list">("card");
+  const [archivedOpen, setArchivedOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<HabitDTO | null>(null);
   const [guestPrompt, setGuestPrompt] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState<HabitDTO | null>(null);
   const [celebrate, setCelebrate] = useState<{ key: number; streak: number } | null>(null);
+
+  /** 恢复归档：习惯回到主列表，历史打卡数据完整保留 */
+  async function handleUnarchive(h: HabitDTO) {
+    const res = await unarchiveHabitAction({ id: h.id });
+    if (!res.success) {
+      toast("error", res.error.message);
+      return;
+    }
+    setArchivedHabits((prev) => prev.filter((x) => x.id !== h.id));
+    setHabits((prev) => [...prev, { ...h, checkedToday: false }]);
+    toast("success", `「${h.name}」已恢复，历史打卡数据完整保留`);
+    router.refresh();
+  }
 
   function openCreate() {
     if (isGuest) {
@@ -169,7 +187,37 @@ export function HabitBoard({
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div
+          className="inline-flex rounded-[var(--radius)] border p-1"
+          style={{ backgroundColor: "var(--color-bg-surface)" }}
+          role="tablist"
+          aria-label="视图切换"
+        >
+          {([
+            { key: "card", label: "卡片", icon: LayoutGrid },
+            { key: "list", label: "列表", icon: List },
+          ] as const).map((v) => {
+            const active = view === v.key;
+            return (
+              <button
+                key={v.key}
+                role="tab"
+                aria-selected={active}
+                type="button"
+                onClick={() => setView(v.key)}
+                className="flex items-center gap-1.5 rounded-[var(--radius-sm)] px-3 py-1.5 text-xs transition-all"
+                style={{
+                  backgroundColor: active ? "var(--color-primary)" : "transparent",
+                  color: active ? "var(--color-primary-fg)" : "var(--color-text-secondary)",
+                }}
+              >
+                <v.icon size={13} aria-hidden />
+                {v.label}
+              </button>
+            );
+          })}
+        </div>
         <button type="button" className="btn btn-primary" onClick={openCreate}>
           <Plus size={16} />
           新增习惯
@@ -189,7 +237,7 @@ export function HabitBoard({
             }
           />
         </div>
-      ) : (
+      ) : view === "card" ? (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {habits.map((h) => (
             <div key={h.id} className="card pop-in flex flex-col gap-3 p-4">
@@ -249,6 +297,85 @@ export function HabitBoard({
             </div>
           ))}
         </div>
+      ) : (
+        <div className="card divide-y overflow-hidden">
+          {habits.map((h) => (
+            <div key={h.id} className="row-in flex items-center gap-3 px-4 py-3">
+              <HabitIconView icon={h.icon} color={h.color} size={17} bgSize={36} />
+              <button type="button" className="min-w-0 flex-1 text-left" onClick={() => openEdit(h)} aria-label={`编辑习惯：${h.name}`}>
+                <span className="block truncate text-sm font-medium">{h.name}</span>
+                {h.description ? (
+                  <span className="block truncate text-xs" style={{ color: "var(--color-text-muted)" }}>
+                    {h.description}
+                  </span>
+                ) : null}
+              </button>
+              <span className="hidden w-24 shrink-0 text-xs sm:inline" style={{ color: "var(--color-text-secondary)" }}>
+                {h.currentStreak > 0 ? `🔥 连续 ${h.currentStreak} 天` : "还没开始"}
+              </span>
+              <span className="hidden w-20 shrink-0 text-xs md:inline" style={{ color: "var(--color-text-muted)" }}>
+                完成率 {h.completionRate}%
+              </span>
+              <CheckinButton
+                checked={h.checkedToday}
+                color={h.color}
+                onClick={() => requestToggle(h)}
+                label={h.checkedToday ? `取消打卡：${h.name}` : `打卡：${h.name}`}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 归档管理区：归档习惯在此列出，可一键恢复（历史打卡数据完整保留） */}
+      {archivedHabits.length > 0 && (
+        <section className="card overflow-hidden" aria-label="已归档习惯">
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium transition-colors hover:bg-[var(--color-bg-elevated)]"
+            onClick={() => setArchivedOpen((v) => !v)}
+            aria-expanded={archivedOpen}
+          >
+            <Archive size={15} style={{ color: "var(--color-text-muted)" }} aria-hidden />
+            已归档习惯
+            <span
+              className="rounded-full px-1.5 py-0.5 text-[10px]"
+              style={{ backgroundColor: "var(--color-bg-elevated)", color: "var(--color-text-muted)" }}
+            >
+              {archivedHabits.length}
+            </span>
+            <span
+              className="ml-auto text-xs transition-transform"
+              style={{ color: "var(--color-text-muted)", transform: archivedOpen ? "rotate(180deg)" : "none" }}
+              aria-hidden
+            >
+              ▾
+            </span>
+          </button>
+          {archivedOpen && (
+            <div className="divide-y border-t" style={{ borderColor: "var(--color-border)" }}>
+              {archivedHabits.map((h) => (
+                <div key={h.id} className="flex items-center gap-3 px-4 py-3">
+                  <HabitIconView icon={h.icon} color={h.color} size={16} bgSize={32} />
+                  <div className="min-w-0 flex-1">
+                    <span className="block truncate text-sm">{h.name}</span>
+                    <span className="block text-xs" style={{ color: "var(--color-text-muted)" }}>
+                      已归档 · 历史打卡数据完整保留
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm"
+                    onClick={() => void handleUnarchive(h)}
+                  >
+                    <ArchiveRestore size={14} />
+                    恢复
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
       )}
 
       <HabitDialog

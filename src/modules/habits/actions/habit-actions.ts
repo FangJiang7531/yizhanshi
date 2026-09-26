@@ -71,6 +71,32 @@ export async function archiveHabitAction(raw: unknown): Promise<ActionResult<unk
   }
 }
 
+export async function unarchiveHabitAction(raw: unknown): Promise<ActionResult<unknown>> {
+  try {
+    const user = await requireNonGuest();
+    const data = updateHabitSchema.pick({ id: true }).parse(raw);
+    const service = createHabitService();
+    const result = await service.archiveHabit({ userId: user.id }, data.id, false);
+    revalidateHabitPages();
+    return ok(result);
+  } catch (err) {
+    logger.warn({ module: "habits", err: (err as Error).message }, "unarchiveHabitAction");
+    return fail(err);
+  }
+}
+
+/** 已归档习惯列表（归档管理区用，轻量字段） */
+export async function listArchivedHabitsAction(): Promise<ActionResult<unknown>> {
+  try {
+    const user = await requireNonGuest();
+    const service = createHabitService();
+    const habits = await service.listArchivedHabits({ userId: user.id });
+    return ok(habits);
+  } catch (err) {
+    return fail(err);
+  }
+}
+
 export async function deleteHabitAction(raw: unknown): Promise<ActionResult<unknown>> {
   try {
     const user = await requireNonGuest();

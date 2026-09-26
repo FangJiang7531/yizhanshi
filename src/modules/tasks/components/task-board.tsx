@@ -58,6 +58,9 @@ export function TaskBoard({
   // 拖拽排序：仅未完成区可拖；拖动项倾斜+阴影，目标项让位，松手持久化 sortOrder
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+  // 筛选与排序（客户端即时生效；拖拽仅在手动排序下可用）
+  const [priorityFilter, setPriorityFilter] = useState<"all" | "HIGH" | "MEDIUM" | "LOW">("all");
+  const [sortBy, setSortBy] = useState<"manual" | "dueAt" | "priority" | "createdAt">("manual");
 
   // 搜索防抖 300ms
   useEffect(() => {
@@ -81,9 +84,24 @@ export function TaskBoard({
         (t) => t.title.toLowerCase().includes(q) || (t.description ?? "").toLowerCase().includes(q),
       );
     }
+    if (priorityFilter !== "all") {
+      list = list.filter((t) => t.priority === priorityFilter);
+    }
+    if (sortBy !== "manual") {
+      const priorityRank = { HIGH: 0, MEDIUM: 1, LOW: 2 } as const;
+      list = [...list].sort((a, b) => {
+        if (sortBy === "priority") return priorityRank[a.priority] - priorityRank[b.priority];
+        if (sortBy === "createdAt") return b.createdAt.localeCompare(a.createdAt);
+        // dueAt：无截止日期排最后，其余升序
+        if (!a.dueAt && !b.dueAt) return 0;
+        if (!a.dueAt) return 1;
+        if (!b.dueAt) return -1;
+        return a.dueAt.localeCompare(b.dueAt);
+      });
+    }
     return list;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, filter, search, today, timezone]);
+  }, [tasks, filter, search, today, timezone, priorityFilter, sortBy]);
 
   function guardGuest(): boolean {
     if (isGuest) {
@@ -234,31 +252,58 @@ export function TaskBoard({
       </div>
 
       {/* 过滤标签（切换内容区横向滑动过渡） */}
-      <div
-        className="inline-flex rounded-[var(--radius)] border p-1"
-        style={{ backgroundColor: "var(--color-bg-surface)" }}
-        role="tablist"
-        aria-label="任务过滤"
-      >
-        {FILTERS.map((f) => {
-          const active = filter === f.key;
-          return (
-            <button
-              key={f.key}
-              role="tab"
-              aria-selected={active}
-              type="button"
-              onClick={() => setFilter(f.key)}
-              className="relative rounded-[var(--radius-sm)] px-4 py-1.5 text-sm transition-all"
-              style={{
-                backgroundColor: active ? "var(--color-primary)" : "transparent",
-                color: active ? "var(--color-primary-fg)" : "var(--color-text-secondary)",
-              }}
-            >
-              {f.label}
-            </button>
-          );
-        })}
+      <div className="flex flex-wrap items-center gap-2">
+        <div
+          className="inline-flex rounded-[var(--radius)] border p-1"
+          style={{ backgroundColor: "var(--color-bg-surface)" }}
+          role="tablist"
+          aria-label="任务过滤"
+        >
+          {FILTERS.map((f) => {
+            const active = filter === f.key;
+            return (
+              <button
+                key={f.key}
+                role="tab"
+                aria-selected={active}
+                type="button"
+                onClick={() => setFilter(f.key)}
+                className="relative rounded-[var(--radius-sm)] px-4 py-1.5 text-sm transition-all"
+                style={{
+                  backgroundColor: active ? "var(--color-primary)" : "transparent",
+                  color: active ? "var(--color-primary-fg)" : "var(--color-text-secondary)",
+                }}
+              >
+                {f.label}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="ml-auto flex items-center gap-1.5">
+          <select
+            className="input !w-auto !py-1.5 text-xs"
+            value={priorityFilter}
+            onChange={(e) => setPriorityFilter(e.target.value as typeof priorityFilter)}
+            aria-label="按优先级筛选"
+          >
+            <option value="all">全部优先级</option>
+            <option value="HIGH">仅高优先</option>
+            <option value="MEDIUM">仅中优先</option>
+            <option value="LOW">仅低优先</option>
+          </select>
+          <select
+            className="input !w-auto !py-1.5 text-xs"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+            aria-label="排序方式"
+          >
+            <option value="manual">手动排序</option>
+            <option value="dueAt">按截止时间</option>
+            <option value="priority">按优先级</option>
+            <option value="createdAt">按创建时间</option>
+          </select>
+        </div>
       </div>
 
       {/* 列表 */}
@@ -301,7 +346,7 @@ export function TaskBoard({
               task={t}
               removing={removingIds.has(t.id)}
               today={today}
-              draggable={!isGuest && filter !== "completed" && !search}
+              draggable={!isGuest && filter === "all" && !search && sortBy === "manual"}
               dragging={draggingId === t.id}
               dropTarget={dropTargetId === t.id && draggingId !== null && draggingId !== t.id}
               onDragStart={() => setDraggingId(t.id)}

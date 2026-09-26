@@ -145,6 +145,26 @@ export function createHabitService(habitRepo: HabitRepository = createHabitRepos
       return { archived: true };
     },
 
+    /** 已归档习惯（轻量：不计算 streak 统计，供归档管理区展示与恢复） */
+    async listArchivedHabits(params: { userId: string }): Promise<HabitDTO[]> {
+      const habits = await habitRepo.listArchived(params.userId);
+      return habits.map((habit) => ({
+        id: habit.id,
+        name: habit.name,
+        description: habit.description,
+        color: habit.color,
+        icon: habit.icon as HabitIcon,
+        targetPerWeek: habit.targetPerWeek,
+        currentStreak: 0,
+        longestStreak: 0,
+        completionRate: 0,
+        monthDates: [],
+        checkedToday: false,
+        createdAt: habit.createdAt.toISOString(),
+        updatedAt: habit.updatedAt.toISOString(),
+      }));
+    },
+
     async deleteHabit(params: { userId: string }, id: string): Promise<{ deleted: true }> {
       const existing = await habitRepo.findById(params.userId, id);
       if (!existing) throw new NotFoundError("习惯不存在");

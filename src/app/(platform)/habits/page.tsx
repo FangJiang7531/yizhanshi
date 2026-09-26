@@ -18,7 +18,12 @@ export default async function HabitsPage() {
   const today = toLocalDateString(new Date(), timezone);
 
   const service = createHabitService();
-  const habits = await service.listHabits({ principal: { userId, isGuest }, today });
+  const [habits, archivedHabits] = await Promise.all([
+    service.listHabits({ principal: { userId, isGuest }, today }),
+    isGuest
+      ? Promise.resolve([])
+      : service.listArchivedHabits({ userId: principal.user.id }),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -26,7 +31,12 @@ export default async function HabitsPage() {
         title="习惯打卡"
         subtitle={isGuest ? "访客模式下展示演示数据，写操作不可用" : "坚持的每一天都在这里"}
       />
-      <HabitBoard initialHabits={habits} today={today} isGuest={isGuest} />
+      <HabitBoard
+        initialHabits={habits}
+        archivedHabits={archivedHabits}
+        today={today}
+        isGuest={isGuest}
+      />
     </div>
   );
 }
