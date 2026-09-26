@@ -30,11 +30,22 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files —— 只允许提交 .env.example（占位值），真实密钥一律不入库
 .env*
+!.env.example
+
+# 本地存储 / 测试产物
+/.storage/
+/.storage-test/
+/test-results/
+/playwright-report/
+/.pwb-pgdata/
 
 # vercel
 .vercel
+
+# 本地工具状态
+/.mimosa/
 
 # typescript
 *.tsbuildinfo

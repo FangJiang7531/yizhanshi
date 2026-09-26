@@ -1,0 +1,348 @@
+// 一站式个人数字工作台 — Prisma Schema（第一阶段 MVP）
+// 规则：一切结构变更走 Migration；业务表必须带 userId 外键与索引（数据隔离的物理保障）。
+// 标注「预留」的模型仅作占位声明，本期不实现业务，避免将来命名冲突。
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- 枚举 ----------
+
+enum Role {
+  ADMIN
+  USER
+  GUEST
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum ColorMode {
+  LIGHT
+  DARK
+  SYSTEM
+}
+
+enum CodePurpose {
+  REGISTER
+  RESET_PASSWORD
+  CHANGE_EMAIL
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+// ---------- 用户与认证 ----------
+
+model User {
+  id              String       @id @default(cuid())
+  /// 统一小写存储（zhang_san 与 Zhang_San 视为同一用户）
+  username        String       @unique
+  /// 统一小写存储
+  email           String       @unique
+  /// Argon2id 哈希；OAuth 注册用户可为空。密码永不落明文
+  passwordHash    String?
+  displayName     String?
+  avatarUrl       String?
+  role            Role         @default(USER)
+  emailVerifiedAt DateTime?
+  /// IANA 时区名（如 Asia/Shanghai）
+  timezone        String       @default("Asia/Shanghai")
+  status          UserStatus   @default(ACTIVE)
+  lastLoginAt     DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  sessions          Session[]
+  setting           UserSetting?
+  tasks             Task[]
+  tags              Tag[]
+  habits            Habit[]
+  habitLogs         HabitLog[]
+  authAccounts      AuthAccount[]
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expiresAt    DateTime
+  userAgent    String?
+  /// IP 哈希存储，不存明文
+  ipHash       String?
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationCode {
+  id         String      @id @default(cuid())
+  email      String
+  /// 存哈希不存明文
+  codeHash   String
+  purpose    CodePurpose
+  expiresAt  DateTime
+  consumedAt DateTime?
+  /// 失败次数，≥5 作废
+  attempts   Int         @default(0)
+  createdAt  DateTime    @default(now())
+
+  @@index([email, purpose, createdAt])
+}
+
+model UserSetting {
+  userId        String    @id
+  themeName     String    @default("classic-paper")
+  colorMode     ColorMode @default(SYSTEM)
+  weekStartDay  Int       @default(1)
+  notifyEmail   Boolean   @default(false)
+  reminderTime  String?
+  locale        String    @default("zh-CN")
+  /// comfortable | compact
+  density       String    @default("comfortable")
+  /// small | medium | large
+  fontSize      String    @default("medium")
+  motionEnabled Boolean   @default(true)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// 第三方登录占位：本期不写入数据，仅建表
+model AuthAccount {
+  id                String   @id @default(cuid())
+  userId            String
+  provider          String
+  providerAccountId String
+  accessTokenRef    String?
+  createdAt         DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+/// 数据库计数限流桶（阶段三迁 Redis）
+model RateLimitBucket {
+  key         String   @id
+  count       Int      @default(0)
+  windowStart DateTime @default(now())
+}
+
+/// 后台任务表（JobRunner 适配器载体；本期不接 Cron 触发）
+model Job {
+  id          String    @id @default(cuid())
+  type        String
+  payloadJson String
+  status      String    @default("pending")
+  runAt       DateTime  @default(now())
+  ranAt       DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([status, runAt])
+}
+
+// ---------- 任务清单 ----------
+
+model Task {
+  id          String    @id @default(cuid())
+  userId      String
+  title       String
+  description String?
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+  /// 截止时刻（UTC 存储；由客户端按用户时区提交的日期串换算）
+  dueAt       DateTime?
+  priority    Priority  @default(MEDIUM)
+  sortOrder   Int       @default(0)
+  /// RRULE 字符串，阶段二启用（只存不解析）
+  repeatRule  String?
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tags TaskTag[]
+
+  @@index([userId, completed, dueAt])
+  @@index([userId, deletedAt])
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  color     String   @default("#6366F1")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tasks TaskTag[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model TaskTag {
+  taskId String
+  tagId  String
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, tagId])
+}
+
+// ---------- 习惯打卡 ----------
+
+model Habit {
+  id            String    @id @default(cuid())
+  userId        String
+  name          String
+  description   String?
+  color         String    @default("#4A7C59")
+  icon          String    @default("flame")
+  targetPerWeek Int       @default(7)
+  sortOrder     Int       @default(0)
+  /// 归档：从列表隐藏但保留全部历史数据
+  archivedAt    DateTime?
+  deletedAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  logs HabitLog[]
+
+  @@index([userId, deletedAt])
+}
+
+model HabitLog {
+  id        String   @id @default(cuid())
+  habitId   String
+  /// 冗余存 userId，便于按用户聚合，避免多一次 join
+  userId    String
+  /// 用户时区下的打卡日期（仅年月日），核心字段。语义是“这一天有没有打卡”
+  logDate   DateTime @db.Date
+  note      String?
+  createdAt DateTime @default(now())
+
+  habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// 保证打卡幂等：同一习惯同一天只有一条记录
+  @@unique([habitId, logDate])
+  @@index([userId, logDate])
+}
+
+// ---------- 预留模型（阶段二+，未启用；仅声明以固化命名规范） ----------
+
+/// 预留：博客 / CMS（阶段二）
+model BlogPost {
+  id          String    @id @default(cuid())
+  userId      String
+  slug        String    @unique
+  title       String
+  contentMd   String
+  excerpt     String?
+  status      String    @default("DRAFT")
+  publishedAt DateTime?
+  viewCount   Int       @default(0)
+  seoTitle    String?
+  seoDesc     String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId, status])
+}
+
+/// 预留：博客评论（阶段二）
+model Comment {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  content   String
+  parentId  String?
+  status    String   @default("VISIBLE")
+  createdAt DateTime @default(now())
+
+  @@index([postId, status])
+}
+
+/// 预留：URL 短链（阶段三）
+model ShortLink {
+  id         String    @id @default(cuid())
+  userId     String
+  slug       String    @unique
+  targetUrl  String
+  expiresAt  DateTime?
+  clickCount Int       @default(0)
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+/// 预留：短链访问明细（阶段三）
+model LinkVisit {
+  id        String   @id @default(cuid())
+  linkId    String
+  ipHash    String?
+  userAgent String?
+  referer   String?
+  country   String?
+  visitedAt DateTime @default(now())
+
+  @@index([linkId, visitedAt])
+}
+
+/// 预留：书签（阶段四）
+model Bookmark {
+  id          String   @id @default(cuid())
+  userId      String
+  url         String
+  title       String
+  favicon     String?
+  description String?
+  isPublic    Boolean  @default(false)
+  shareToken  String?  @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+}
+
+/// 预留：问卷（阶段五）
+model Survey {
+  id           String   @id @default(cuid())
+  userId       String
+  title        String
+  description  String?
+  status       String   @default("DRAFT")
+  isAnonymous  Boolean  @default(true)
+  schemaJson   String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+/// 预留：问卷回执（阶段五）
+model SurveyResponse {
+  id             String   @id @default(cuid())
+  surveyId       String
+  respondentHash String?
+  answersJson    String
+  submittedAt    DateTime @default(now())
+
+  @@index([surveyId])
+}
