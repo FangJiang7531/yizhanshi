@@ -16,10 +16,13 @@ export interface MailAdapter {
 /**
  * E2E 专用验证码捕获：仅在 NODE_ENV=development 且显式设置 E2E_CAPTURE_CODE=1 时生效。
  * 生产环境永远为空，不构成后门。
+ * 注意：Next dev 中 Server Action 与 Route Handler 属于不同模块图，模块级变量不共享，
+ * 因此必须挂在 globalThis 上（同一 Node 进程内共享）。
  */
 const e2eEnabled =
   process.env.NODE_ENV === "development" && process.env.E2E_CAPTURE_CODE === "1";
-const e2eCodes = new Map<string, string>();
+const globalStore = globalThis as unknown as { __pwbE2ECodes?: Map<string, string> };
+const e2eCodes = (globalStore.__pwbE2ECodes ??= new Map<string, string>());
 
 function e2eCapture(email: string, code: string) {
   if (e2eEnabled) e2eCodes.set(email, code);
