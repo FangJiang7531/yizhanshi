@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { ToastProvider } from "@/components/feedback/toast";
 
 /**
  * 认证区独立极简布局：(auth) 路由组不加载侧边栏外壳。
@@ -9,11 +10,13 @@ import type { ReactNode } from "react";
  */
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
-    <div
-      className="min-h-screen w-full flex items-center justify-center px-4 py-10"
-      style={{ backgroundColor: "var(--color-bg-base)", color: "var(--color-text-primary)" }}
-    >
-      {children}
-    </div>
+    <ToastProvider>
+      <div
+        className="min-h-screen w-full flex items-center justify-center px-4 py-10"
+        style={{ backgroundColor: "var(--color-bg-base)", color: "var(--color-text-primary)" }}
+      >
+        {children}
+      </div>
+    </ToastProvider>
   );
 }
