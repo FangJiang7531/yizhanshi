@@ -1,26 +1,38 @@
 "use client";
 
 import { AlertCircle, CheckCircle2, Info, X } from "lucide-react";
-import { createContext, useCallback, useContext, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 
 type ToastKind = "success" | "error" | "info";
-type Toast = { id: number; kind: ToastKind; message: string };
+type ToastItem = { id: number; kind: ToastKind; message: string };
 
-const ToastContext = createContext<{
-  toast: (kind: ToastKind, message: string) => void;
-} | null>(null);
+/**
+ * Toast 服务。
+ * 对外同时提供两种等价用法：
+ *   const toast = useToast();  toast.success("已保存");
+ *   const { toast } = useToast();  toast("success", "已保存");
+ *
+ * 无障碍：成功用 role=status（3s 自动淡出），失败用 role=alert（5s 或手动关闭）。
+ */
+export type ToastApi = {
+  (kind: ToastKind, message: string): void;
+  success: (message: string) => void;
+  error: (message: string) => void;
+  info: (message: string) => void;
+};
+
+const ToastContext = createContext<ToastApi | null>(null);
 
 let nextId = 1;
 
-/** Toast：成功 role=status 3 秒自动淡出；失败 role=alert 5 秒或手动关闭 */
 export function ToastProvider({ children }: { children: ReactNode }) {
-  const [toasts, setToasts] = useState<Toast[]>([]);
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   const remove = useCallback((id: number) => {
     setToasts((list) => list.filter((t) => t.id !== id));
   }, []);
 
-  const toast = useCallback(
+  const push = useCallback(
     (kind: ToastKind, message: string) => {
       const id = nextId++;
       setToasts((list) => [...list, { id, kind, message }]);
@@ -29,18 +41,26 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     [remove],
   );
 
+  const api = useMemo<ToastApi>(() => {
+    const fn = ((kind: ToastKind, message: string) => push(kind, message)) as ToastApi;
+    fn.success = (message: string) => push("success", message);
+    fn.error = (message: string) => push("error", message);
+    fn.info = (message: string) => push("info", message);
+    return fn;
+  }, [push]);
+
   return (
-    <ToastContext.Provider value={{ toast }}>
+    <ToastContext.Provider value={api}>
       {children}
       <div
-        className="fixed left-1/2 top-4 z-[100] flex w-full max-w-sm -translate-x-1/2 flex-col gap-2 px-4"
+        className="pointer-events-none fixed left-1/2 top-4 z-[100] flex w-full max-w-sm -translate-x-1/2 flex-col gap-2 px-4"
         aria-live="polite"
       >
         {toasts.map((t) => (
           <div
             key={t.id}
             role={t.kind === "error" ? "alert" : "status"}
-            className="toast-in flex items-start gap-2 rounded-[var(--radius)] border px-3 py-2.5 text-sm"
+            className="toast-in pointer-events-auto flex items-start gap-2 rounded-[var(--radius)] border px-3 py-2.5 text-sm"
             style={{
               backgroundColor: "var(--color-bg-elevated)",
               borderColor:
@@ -76,7 +96,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useToast() {
+export function useToast(): ToastApi {
   const ctx = useContext(ToastContext);
   if (!ctx) throw new Error("useToast 必须在 ToastProvider 内使用");
   return ctx;

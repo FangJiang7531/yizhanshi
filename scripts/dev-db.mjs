@@ -57,13 +57,32 @@ function readText(p) {
   }
 }
 
-function runPsql(sql) {
-  const r = spawnSync(
-    join(binDir, "psql.exe"),
-    ["-h", "127.0.0.1", "-p", String(PORT), "-U", USER, "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-c", sql],
-    { stdio: "pipe", encoding: "utf-8", env: { ...process.env, PGPASSWORD: PASSWORD } },
-  );
-  return r.status === 0;
+/** 内嵌二进制只含服务端（initdb/pg_ctl/postgres），客户端用 node pg 驱动 */
+async function databaseExists(dbName) {
+  const { Client } = await import("pg");
+  const c = new Client({ host: "127.0.0.1", port: PORT, user: USER, password: PASSWORD, database: "postgres" });
+  try {
+    await c.connect();
+    const r = await c.query("SELECT 1 FROM pg_database WHERE datname = $1", [dbName]);
+    return r.rowCount > 0;
+  } finally {
+    await c.end().catch(() => undefined);
+  }
+}
+
+async function createDatabase(dbName) {
+  const { Client } = await import("pg");
+  const c = new Client({ host: "127.0.0.1", port: PORT, user: USER, password: PASSWORD, database: "postgres" });
+  try {
+    await c.connect();
+    await c.query(`CREATE DATABASE "${dbName}"`);
+    return true;
+  } catch (err) {
+    if (String(err.message).includes("already exists")) return false;
+    throw err;
+  } finally {
+    await c.end().catch(() => undefined);
+  }
 }
 
 const action = process.argv[2] ?? "up";
@@ -106,14 +125,10 @@ if (status.status !== 0) {
   console.log("[db] PostgreSQL 已在运行");
 }
 
-if (!runPsql(`SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'`)) {
-  // 库不存在（或查询失败）时尝试创建；已存在会失败，忽略即可
-  const r = spawnSync(
-    join(binDir, "psql.exe"),
-    ["-h", "127.0.0.1", "-p", String(PORT), "-U", USER, "-d", "postgres", "-c", `CREATE DATABASE ${DB_NAME}`],
-    { stdio: "pipe", encoding: "utf-8", env: { ...process.env, PGPASSWORD: PASSWORD } },
-  );
-  if (r.status === 0) console.log(`[db] 已创建数据库 ${DB_NAME}`);
+if (!(await databaseExists(DB_NAME))) {
+  if (await createDatabase(DB_NAME)) {
+    console.log(`[db] 已创建数据库 ${DB_NAME}`);
+  }
 }
 
 console.log(`[db] 就绪：postgresql://${USER}:${PASSWORD}@localhost:${PORT}/${DB_NAME}`);
