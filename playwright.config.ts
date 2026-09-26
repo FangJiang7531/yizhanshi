@@ -13,7 +13,7 @@ export default defineConfig({
   workers: 1,
   reporter: process.env.CI ? "github" : "list",
   use: {
-    baseURL: process.env.E2E_BASE_URL ?? "http://127.0.0.1:3100",
+    baseURL: process.env.E2E_BASE_URL ?? "http://127.0.0.1:3210",
     trace: "retain-on-failure",
     locale: "zh-CN",
     timezoneId: "Asia/Shanghai",
@@ -24,9 +24,9 @@ export default defineConfig({
   webServer: process.env.E2E_BASE_URL
     ? undefined
     : {
-        command: "npx next dev -p 3100",
-        url: "http://127.0.0.1:3100/api/health",
-        reuseExistingServer: !process.env.CI,
+        command: "npx next dev -p 3210",
+        url: "http://127.0.0.1:3210/api/health",
+        reuseExistingServer: false,
         timeout: 120_000,
         env: {
           E2E_CAPTURE_CODE: "1",
