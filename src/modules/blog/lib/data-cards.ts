@@ -70,7 +70,8 @@ export type ParsedCard =
 const HABIT_RE = /^:::habit-summary\{([^}]*)\}$/s;
 const TASK_RE = /^:::task-progress\{([^}]*)\}$/s;
 
-function parseAttrs(raw: string): Record<string, string> {
+/** 解析标记属性串（`key="value"` 形式；供本模块与数据卡片服务层复用） */
+export function parseCardAttrs(raw: string): Record<string, string> {
   const attrs: Record<string, string> = {};
   const re = /(\w+)="([^"]*)"/g;
   let m: RegExpExecArray | null;
@@ -87,7 +88,7 @@ export function parseDataCard(text: string): ParsedCard | null {
   const trimmed = text.trim();
   const habit = HABIT_RE.exec(trimmed);
   if (habit) {
-    const attrs = parseAttrs(habit[1] ?? "");
+    const attrs = parseCardAttrs(habit[1] ?? "");
     return {
       type: "habit",
       habitId: attrs.habitId ?? "",
@@ -97,7 +98,7 @@ export function parseDataCard(text: string): ParsedCard | null {
   }
   const task = TASK_RE.exec(trimmed);
   if (task) {
-    const attrs = parseAttrs(task[1] ?? "");
+    const attrs = parseCardAttrs(task[1] ?? "");
     return {
       type: "task",
       taskId: attrs.taskId ?? "",

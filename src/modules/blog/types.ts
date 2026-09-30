@@ -12,6 +12,8 @@ import type { AuditStatus, CommentStatus, PostStatus, PostVisibility } from "@pr
 export type ListMineQuery = {
   status?: PostStatus;
   q?: string;
+  /** updated=最近更新 / published=最近发布 / views=阅读量 */
+  sort?: "updated" | "published" | "views";
   cursor?: string;
   take: number;
 };

@@ -343,3 +343,67 @@
     transform: translateY(0);
   }
 }
+
+/* ---------- 创作页：编辑器工具栏（PRD §5.2.2 / 制作流程 Step 5.3） ----------
+   工具按钮走「低饱和 + hover 提亮」的克制路线：编辑器是长时驻留界面，
+   按钮若用高对比实色，久看会形成视觉噪声。 */
+
+.editor-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.editor-tool-btn:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
+  color: var(--color-text-primary);
+}
+
+.editor-tool-btn:active:not(:disabled) {
+  background-color: color-mix(in srgb, var(--color-text-primary) 11%, transparent);
+}
+
+.editor-tool-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.editor-tool-btn-wide {
+  padding-inline: 8px;
+}
+
+/* ---------- 创作页：发布成功波纹（PRD §8.3 动效节奏） ----------
+   仅作一次性的状态确认反馈，不循环、不阻塞交互。 */
+
+.publish-ripple {
+  animation: publish-ripple var(--duration-slow) var(--ease-out);
+}
+
+@keyframes publish-ripple {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-primary) 45%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 10px color-mix(in srgb, var(--color-primary) 0%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-primary) 0%, transparent);
+  }
+}
+
+/* 尊重系统「减少动态效果」偏好：波纹与入场动画一并关闭 */
+@media (prefers-reduced-motion: reduce) {
+  .publish-ripple,
+  .blog-rise {
+    animation: none;
+  }
+}

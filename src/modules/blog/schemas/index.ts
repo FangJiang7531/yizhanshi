@@ -82,6 +82,7 @@ export const deletePostSchema = z.object({ id: z.string().cuid() });
 export const listMineSchema = z.object({
   status: z.enum(["DRAFT", "REVIEW", "PUBLISHED", "ARCHIVED"]).optional(),
   q: z.string().trim().max(100).optional(),
+  sort: z.enum(["updated", "published", "views"]).default("updated"),
   cursor: z.string().optional(),
   take: z.coerce.number().int().min(1).max(50).default(20),
 });
@@ -176,6 +177,20 @@ export const imageUploadSchema = z.object({
 });
 
 /**
+ * 数据卡片生成（编辑器"插入数据卡片"，PRD A-20）。
+ * 习惯卡选具体习惯；任务卡为整体清单进度（无附加参数）。
+ */
+export const buildDataCardSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("habit"), habitId: z.string().min(1).max(64) }),
+  z.object({ kind: z.literal("task") }),
+]);
+
+/** 编辑器预览渲染请求体（Route Handler /api/blog/render-preview） */
+export const renderPreviewSchema = z.object({
+  contentMd: z.string().max(200_000, "正文最多 20 万字"),
+});
+
+/**
  * 导出给服务层的入参类型一律用 `z.input`（**解析前**的形态）而非 `z.infer`。
  *
  * 原因：带 `.default()` 的字段在 `z.infer`（即输出类型）里会变成必填，
@@ -194,6 +209,7 @@ export type RepostInput = z.input<typeof repostSchema>;
 export type SearchInput = z.input<typeof searchSchema>;
 export type ModerateInput = z.input<typeof moderateSchema>;
 export type ImageUploadInput = z.input<typeof imageUploadSchema>;
+export type BuildDataCardInput = z.input<typeof buildDataCardSchema>;
 
 /** 解析后的形态（需要显式使用"已补全默认值"的类型时用这个） */
 export type SaveDraftParsed = z.infer<typeof saveDraftSchema>;

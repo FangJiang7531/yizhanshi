@@ -165,6 +165,19 @@ export function createHabitService(habitRepo: HabitRepository = createHabitRepos
       }));
     },
 
+    /**
+     * 指定日期区间（含边界）内的打卡日期串，升序。
+     *
+     * 供跨模块只读场景（博客数据卡片快照）使用 —— 卡片"本周打卡位图"可能跨越
+     * 月初/月末，而 listHabits 的 monthDates 只有当月，用它会丢跨月的天数。
+     * 日期串为 YYYY-MM-DD，字符串比较即日期比较（与全库口径一致）。
+     * 个人规模数据全量取回再过滤即可，无需为区间查询引入额外索引。
+     */
+    async getLogDatesInRange(params: { userId: string; habitId: string; start: string; end: string }): Promise<string[]> {
+      const all = await habitRepo.findAllLogDates(params.userId, params.habitId);
+      return all.filter((d) => d >= params.start && d <= params.end).sort();
+    },
+
     async deleteHabit(params: { userId: string }, id: string): Promise<{ deleted: true }> {
       const existing = await habitRepo.findById(params.userId, id);
       if (!existing) throw new NotFoundError("习惯不存在");

@@ -5,6 +5,7 @@ import { getPrincipal, type SessionUser } from "@/lib/auth/session";
 import { requireNonGuest, requireRole } from "@/lib/auth/guards";
 import { fail, ok, type ActionResult } from "@/lib/errors";
 import { logger } from "@/lib/logger";
+import { toLocalDateString } from "@/lib/date/timezone";
 import {
   archivePostSchema,
   deletePostSchema,
@@ -16,6 +17,7 @@ import {
 } from "../schemas";
 import { createPostService } from "../services/post.service";
 import { createBlogImageService } from "../services/image.service";
+import { createDataCardService } from "../services/data-card.service";
 import type { MineStatsDTO, PostDetailDTO, PostEditDTO, PostListItemDTO } from "../types";
 
 /**
@@ -52,6 +54,7 @@ export async function listMineAction(raw: unknown): Promise<ActionResult<{ items
     const result = await service.listMine(user.id, {
       status: data.status,
       q: data.q,
+      sort: data.sort,
       cursor: data.cursor,
       take: data.take,
     });
@@ -107,14 +110,25 @@ export async function publishPostAction(raw: unknown): Promise<ActionResult<{ sl
     const data = publishPostSchema.parse(raw);
     const service = createPostService();
     const imageService = createBlogImageService();
+    const cardService = createDataCardService();
 
     // ④ 图片固化：草稿态签名 URL → 公开路径（PRD §5.3 步骤④）
     const promotedContent = await imageService.promoteForPublish(user.id, data.contentMd);
     const promotedCover = await imageService.promoteForPublish(user.id, data.coverImage ?? null);
 
+    // ⑤ 数据卡片快照固化：把正文中每个卡片标记的 snapshot 刷新为"此刻"的数据
+    //    （否则"本周打卡 N 天"会随下周到来变成 0 天；策划文档 §8.5）
+    const today = toLocalDateString(new Date(), user.timezone);
+    const withSnapshots = await cardService.injectSnapshots(
+      promotedContent ?? data.contentMd,
+      user.id,
+      today,
+      user.timezone,
+    );
+
     const result = await service.publish(user.id, {
       ...data,
-      contentMd: promotedContent ?? data.contentMd,
+      contentMd: withSnapshots,
       coverImage: promotedCover ?? undefined,
     });
 

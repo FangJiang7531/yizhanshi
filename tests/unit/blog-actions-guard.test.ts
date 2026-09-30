@@ -28,22 +28,51 @@ function listActionFiles(): string[] {
   return readdirSync(ACTIONS_DIR).filter((f) => f.endsWith(".actions.ts"));
 }
 
-type ActionBlock = { name: string; body: string; file: string };
+type ActionBlock = { name: string; body: string; params: string; file: string };
 
 function parseActions(): ActionBlock[] {
   const blocks: ActionBlock[] = [];
   for (const file of listActionFiles()) {
     const source = readFileSync(join(ACTIONS_DIR, file), "utf8");
-    const starts = [...source.matchAll(/export async function (\w+)/g)];
+    const starts = [...source.matchAll(/export async function (\w+)\s*\(([^)]*)\)/g)];
     starts.forEach((match, i) => {
       const name = match[1]!;
+      const params = match[2] ?? "";
       const from = match.index!;
       const to = i + 1 < starts.length ? starts[i + 1]!.index! : source.length;
-      blocks.push({ name, body: source.slice(from, to), file });
+      blocks.push({ name, body: source.slice(from, to), params, file });
     });
   }
   return blocks;
 }
+
+/**
+ * 零参 Action 白名单：这些 Action 不接受任何用户输入，因此无输入可校验。
+ *
+ * ⚠️ 白名单不是"放行开关"，而是**分类声明**。它由下面「白名单自校验」
+ * 用例反向约束：名单中的每一项都必须真实存在于 actions 目录、且参数列表
+ * 必须为空。若哪天有人把带参数的 Action 塞进来"绕过"校验，测试会直接红。
+ *
+ * 收录逐个说明（新增前请先确认该 Action 确实没有输入通道）：
+ * - createDraftAction            → 新建空草稿，输入来自当前登录用户
+ * - mineStatsAction              → 本人统计，输入来自当前登录用户
+ * - listModerationQueueAction    → 待审队列，输入来自当前登录用户角色
+ * - listPendingCommentsAction    → 待审评论，同上
+ * - getInteractionCapabilityAction → 互动能力探测，输入来自 principal
+ * - getViewerIdentityAction      → 登录态探测，输入来自 principal
+ * - getImageQuotaAction          → 图床额度，输入来自当前登录用户
+ * - listDataCardSourcesAction    → 数据卡片来源列表，输入来自当前登录用户
+ */
+const NO_INPUT_ACTIONS = new Set([
+  "createDraftAction",
+  "mineStatsAction",
+  "listModerationQueueAction",
+  "listPendingCommentsAction",
+  "getInteractionCapabilityAction",
+  "getViewerIdentityAction",
+  "getImageQuotaAction",
+  "listDataCardSourcesAction",
+]);
 
 describe("Gate 4.1 · Action 层结构守卫", () => {
   it("actions 目录下每个文件都以 \"use server\" 开头", () => {
@@ -68,23 +97,32 @@ describe("Gate 4.1 · Action 层结构守卫", () => {
 
   it("每个需要输入的 Action 都做 Zod 校验（Gate 4.1 判据 2）", () => {
     const blocks = parseActions();
-    // 无参 Action（不需要输入校验）
-    const noInputActions = new Set([
-      "createDraftAction",
-      "mineStatsAction",
-      "listModerationQueueAction",
-      "listPendingCommentsAction",
-      "getInteractionCapabilityAction",
-      "getViewerIdentityAction",
-      "getImageQuotaAction",
-    ]);
 
     const missing = blocks
-      .filter((b) => !noInputActions.has(b.name))
+      .filter((b) => !NO_INPUT_ACTIONS.has(b.name))
       .filter((b) => !/\.parse\(/.test(b.body))
       .map((b) => `${b.file}::${b.name}`);
 
     expect(missing, `以下 Action 缺少 Zod 校验：${missing.join(", ")}`).toEqual([]);
+  });
+
+  it("零参白名单自校验：只收录真实存在且确实零参数的 Action（防止白名单沦为放行后门）", () => {
+    const blocks = parseActions();
+    const byName = new Map(blocks.map((b) => [b.name, b]));
+
+    const stale: string[] = [];
+    const withParams: string[] = [];
+    for (const name of NO_INPUT_ACTIONS) {
+      const block = byName.get(name);
+      if (!block) {
+        stale.push(name);
+        continue;
+      }
+      if (block.params.trim() !== "") withParams.push(`${name}(${block.params.trim()})`);
+    }
+
+    expect(stale, `白名单中的 Action 已不存在（改名或删除），请同步清理：${stale.join(", ")}`).toEqual([]);
+    expect(withParams, `以下 Action 有输入参数，不得列入零参白名单：${withParams.join(", ")}`).toEqual([]);
   });
 
   it("Action 体内不出现任何关闭检查项的指令（PRD §10.6 判据 3）", () => {

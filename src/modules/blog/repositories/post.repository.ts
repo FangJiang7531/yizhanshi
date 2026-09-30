@@ -80,10 +80,21 @@ export function createPostRepository(db: Db = defaultPrisma) {
         ];
       }
       const take = opts.take;
+      // 排序均以 id desc 收尾作决胜键：游标分页在"排序键不唯一"时才不错乱/丢行
+      const orderBy: Prisma.BlogPostOrderByWithRelationInput[] = (() => {
+        switch (opts.sort) {
+          case "published":
+            return [{ publishedAt: { sort: "desc", nulls: "last" } }, { updatedAt: "desc" }, { id: "desc" }];
+          case "views":
+            return [{ viewCount: "desc" }, { updatedAt: "desc" }, { id: "desc" }];
+          default:
+            return [{ updatedAt: "desc" }, { id: "desc" }];
+        }
+      })();
       const items = await db.blogPost.findMany({
         where,
         include: LIST_INCLUDE,
-        orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+        orderBy,
         take: take + 1,
         ...(opts.cursor ? { cursor: { id: opts.cursor }, skip: 1 } : {}),
       });
