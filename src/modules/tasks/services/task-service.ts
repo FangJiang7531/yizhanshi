@@ -132,7 +132,7 @@ export function createTaskService(taskRepo: TaskRepository = createTaskRepositor
         sortOrder: minOrder - 1,
       });
       if (data.tagIds?.length) {
-        await taskRepo.setTags(task.id, data.tagIds);
+        await taskRepo.setTags(params.userId, task.id, data.tagIds);
       }
       const full = await taskRepo.findById(params.userId, task.id);
       if (!full) throw new NotFoundError("任务不存在");
@@ -150,7 +150,7 @@ export function createTaskService(taskRepo: TaskRepository = createTaskRepositor
             throw new ForbiddenError("包含不属于你的标签");
           }
         }
-        await taskRepo.setTags(data.id, data.tagIds);
+        await taskRepo.setTags(params.userId, data.id, data.tagIds);
       }
 
       const dueAt =

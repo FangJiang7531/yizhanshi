@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { ArrowLeft } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import { useToast } from "@/components/feedback/toast";
 
 export type ComingSoonStatus = "planned" | "integrating" | "coming-soon";
@@ -32,12 +32,13 @@ const STATUS_TEXT: Record<ComingSoonStatus, { title: string; body: string; step:
  */
 export function ComingSoonPage({
   name,
-  icon: Icon,
+  icon,
   description,
   status,
 }: {
   name: string;
-  icon: LucideIcon;
+  /** 服务端渲染好的图标节点（ReactNode 可跨边界序列化，组件函数不行） */
+  icon: ReactNode;
   description: string;
   status: ComingSoonStatus;
 }) {
@@ -56,7 +57,7 @@ export function ComingSoonPage({
         }}
         aria-hidden
       >
-        <Icon size={38} />
+        {icon}
       </div>
 
       <h1 className="text-[26px] font-semibold">{name}</h1>

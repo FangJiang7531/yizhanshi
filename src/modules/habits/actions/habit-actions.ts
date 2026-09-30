@@ -9,7 +9,7 @@ import {
 } from "../schemas";
 import { createHabitService } from "../services/habit-service";
 import { requireNonGuest } from "@/lib/auth/guards";
-import { fail, ok, type ActionResult } from "@/lib/errors";
+import { fail, ok, NotFoundError, type ActionResult } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { toLocalDateString } from "@/lib/date/timezone";
 import type { HabitDTO, ToggleLogResult } from "../types";
@@ -50,7 +50,7 @@ export async function updateHabitAction(
       today: toLocalDateString(new Date(), user.timezone),
     });
     const habit = list.find((h) => h.id === data.id);
-    if (!habit) return fail(new Error("习惯不存在或无权访问"));
+    if (!habit) return fail(new NotFoundError("习惯不存在"));
     return ok(habit);
   } catch (err) {
     logger.warn({ module: "habits", err: (err as Error).message }, "updateHabitAction");

@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 import { requireNonGuest } from "@/lib/auth/guards";
 import { env } from "@/config/env";
 import { storage } from "@/lib/storage";
-import { fail, ok, type ActionResult } from "@/lib/errors";
+import { fail, ok, ValidationError, type ActionResult } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 
 /**
@@ -54,17 +54,17 @@ export async function uploadAvatarAction(
 
     const file = formData.get("file");
     if (!(file instanceof File)) {
-      return fail(new Error("请选择图片文件"));
+      return fail(new ValidationError({ file: ["请选择图片文件"] }));
     }
     const ext = AVATAR_TYPES[file.type];
     if (!ext) {
-      return fail(new Error("仅支持 PNG / JPG / WebP 格式"));
+      return fail(new ValidationError({ file: ["仅支持 PNG / JPG / WebP 格式"] }));
     }
     if (file.size > AVATAR_MAX_BYTES) {
-      return fail(new Error("图片不能超过 2MB"));
+      return fail(new ValidationError({ file: ["图片不能超过 2MB"] }));
     }
     if (file.size === 0) {
-      return fail(new Error("图片内容为空"));
+      return fail(new ValidationError({ file: ["图片内容为空"] }));
     }
 
     const bytes = Buffer.from(await file.arrayBuffer());

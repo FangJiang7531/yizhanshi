@@ -5,7 +5,7 @@ import { createTaskSchema, updateTaskSchema, toggleTaskSchema, deleteTaskSchema,
 import { createTaskService } from "../services/task-service";
 import { requireNonGuest } from "@/lib/auth/guards";
 import { getPrincipal } from "@/lib/auth/session";
-import { fail, ok, type ActionResult } from "@/lib/errors";
+import { fail, ok, UnauthorizedError, type ActionResult } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { toLocalDateString } from "@/lib/date/timezone";
 
@@ -24,7 +24,7 @@ export async function listTasksAction(raw: unknown): Promise<ActionResult<unknow
   try {
     const principal = await getPrincipal();
     if (!principal) {
-      return fail(new Error("UNAUTHORIZED"));
+      return fail(new UnauthorizedError());
     }
     const data = listTasksSchema.parse(raw);
     const isGuest = "guest" in principal;
@@ -111,7 +111,7 @@ export async function reorderTasksAction(raw: unknown): Promise<ActionResult<{ r
 
 export async function listTagsAction(): Promise<ActionResult<unknown>> {  try {
     const principal = await getPrincipal();
-    if (!principal) return fail(new Error("UNAUTHORIZED"));
+    if (!principal) return fail(new UnauthorizedError());
     const isGuest = "guest" in principal;
     const service = createTaskService();
     const tags = await service.listTags({ userId: isGuest ? null : principal.user.id, isGuest });
@@ -139,7 +139,7 @@ export async function createTagAction(raw: unknown): Promise<ActionResult<unknow
 export async function getTodayAction(): Promise<ActionResult<{ today: string }>> {
   try {
     const principal = await getPrincipal();
-    if (!principal) return fail(new Error("UNAUTHORIZED"));
+    if (!principal) return fail(new UnauthorizedError());
     const timezone = "guest" in principal ? "Asia/Shanghai" : principal.user.timezone;
     return ok({ today: toLocalDateString(new Date(), timezone) });
   } catch (err) {

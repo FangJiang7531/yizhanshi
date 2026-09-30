@@ -120,9 +120,14 @@ export function createTaskRepository(db: PrismaClient = defaultPrisma) {
       return db.task.updateMany({ where: { id, userId }, data: { deletedAt: new Date() } });
     },
 
-    setTags(taskId: string, tagIds: string[]) {
+    /**
+     * 替换任务标签（deleteMany + create）。
+     * where 带 userId + deletedAt 作用域（extendedWhereUnique）：
+     * 即使服务层归属校验与写入之间存在并发窗口，越权/已删除任务也会直接写入失败（P2025）。
+     */
+    setTags(userId: string, taskId: string, tagIds: string[]) {
       return db.task.update({
-        where: { id: taskId },
+        where: { id: taskId, userId, deletedAt: null },
         data: {
           tags: {
             deleteMany: {},

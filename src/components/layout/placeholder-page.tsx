@@ -26,10 +26,12 @@ export async function PlaceholderPage() {
     redirect(mod.path);
   }
 
+  // 图标在服务端渲染为 ReactNode 传入：组件函数无法跨服务端/客户端边界序列化
+  const Icon = mod.icon;
   return (
     <ComingSoonPage
       name={mod.name}
-      icon={mod.icon}
+      icon={<Icon size={38} />}
       description={mod.description}
       status={mod.status}
     />
