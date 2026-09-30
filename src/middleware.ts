@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { isPublicPath } from "@/config/public-routes";
 
 const SESSION_COOKIE = "pwb_session";
 const GUEST_COOKIE = "pwb_guest";
@@ -13,10 +14,14 @@ function hasSessionCookie(cookieHeader: string | null): boolean {
 /**
  * 路由守卫（边缘粗判，PRD §6.1 入口策略）。
  *
- * 只判断「是否有会话 Cookie」，不做真伪与业务权限校验——那由服务层
- * `getPrincipal()` / `requireAuth()` / `requireNonGuest()` 完成。
+ * 只判断「是否有会话 Cookie」+「路径是否公开」，不做真伪与业务权限校验——
+ * 那由服务层 `getPrincipal()` / `requireAuth()` / `requireNonGuest()` 完成。
  * 三层都要做的原因：中间件可能被新路由规则绕过，只有服务层强制 userId
  * 作用域是不依赖调用方是否记得检查的结构性保障（策划文档 §五(三)）。
+ *
+ * 公开路径（PRD §3.1 权限列）放行匿名访问：博客消费侧页面是公开内容，
+ * 且 SEO 要求爬虫无 Cookie 也能抓取。放行名单由 `src/config/public-routes.ts`
+ * 汇总，本文件不认识任何具体板块。
  *
  * 同时注入 `x-pathname`，供占位页组件在服务端读取当前路径。
  */
@@ -31,7 +36,7 @@ export function middleware(request: NextRequest) {
     return withPathname(request);
   }
 
-  if (!hasCookie) {
+  if (!hasCookie && !isPublicPath(pathname)) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("next", pathname + search);
     return NextResponse.redirect(loginUrl);

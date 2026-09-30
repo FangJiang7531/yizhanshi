@@ -131,6 +131,32 @@ export const tagArchiveSchema = z.object({
   take: z.coerce.number().int().min(1).max(50).default(20),
 });
 
+/**
+ * 公开列表"加载更多"（发现页 / 作者页 / 标签页共用）。
+ *
+ * 为什么用 Server Action 而不是分页链接里的 `?cursor=`：
+ * 详情页与作者页/标签页是 **ISR 静态页**，一旦读取 `searchParams`，Next 会把整条
+ * 路由拉回动态渲染，ISR 直接失效。改用客户端加载更多 → 首屏保持静态可缓存，
+ * 追加数据走按需请求，两边都不牺牲。
+ */
+export const loadMorePostsSchema = z
+  .object({
+    scope: z.enum(["all", "tag", "author"]),
+    tab: z.enum(["latest", "hot"]).optional(),
+    tag: z.string().trim().min(1).max(50).optional(),
+    username: z.string().trim().min(1).max(50).optional(),
+    cursor: z.string().optional(),
+    take: z.coerce.number().int().min(1).max(50).default(20),
+  })
+  .refine((v) => v.scope !== "tag" || Boolean(v.tag), {
+    message: "scope=tag 时必须提供 tag",
+    path: ["tag"],
+  })
+  .refine((v) => v.scope !== "author" || Boolean(v.username), {
+    message: "scope=author 时必须提供 username",
+    path: ["username"],
+  });
+
 /** 审核队列（ADMIN） */
 export const moderateSchema = z.object({
   id: z.string().cuid(),
@@ -162,6 +188,7 @@ export type PublishPostInput = z.input<typeof publishPostSchema>;
 export type UpdateSlugInput = z.input<typeof updateSlugSchema>;
 export type ListMineInput = z.input<typeof listMineSchema>;
 export type PublicListInput = z.input<typeof publicListSchema>;
+export type LoadMorePostsInput = z.input<typeof loadMorePostsSchema>;
 export type CreateCommentInput = z.input<typeof createCommentSchema>;
 export type RepostInput = z.input<typeof repostSchema>;
 export type SearchInput = z.input<typeof searchSchema>;

@@ -211,8 +211,8 @@ export function createPostService(
         slug = input.slug;
       }
 
-      // ⑤ 渲染 HTML + 派生字段
-      const { html } = await renderMarkdown(contentMd);
+      // ⑤ 渲染 HTML + 派生字段（目录随 HTML 一并固化，详情页不必重解析 Markdown）
+      const { html, toc } = await renderMarkdown(contentMd);
       const stats = calcStats(contentMd);
 
       // ⑥ 事务写入：标签 + 审核流水 + 文章主体
@@ -239,6 +239,7 @@ export function createPostService(
             excerpt,
             contentMd,
             contentHtml: html,
+            toc: toc as unknown as Prisma.InputJsonValue,
             coverImage: input.coverImage || null,
             seoTitle: input.seoTitle || null,
             seoDesc: input.seoDesc || null,
@@ -311,9 +312,13 @@ export function createPostService(
       if (!post) throw new PostNotAccessibleError();
       // 预览用的 HTML：懒渲染（草稿可能从未渲染过）
       if (!post.contentHtml && post.contentMd) {
-        const { html } = await renderMarkdown(post.contentMd);
-        await postRepo.updateMine(userId, id, { contentHtml: html });
+        const { html, toc } = await renderMarkdown(post.contentMd);
+        await postRepo.updateMine(userId, id, {
+          contentHtml: html,
+          toc: toc as unknown as Prisma.InputJsonValue,
+        });
         post.contentHtml = html;
+        post.toc = toc as unknown as Prisma.JsonValue;
       }
       return serializePostForEdit(post);
     },
@@ -330,6 +335,34 @@ export function createPostService(
     async listPublicTags(): Promise<TagCloudItemDTO[]> {
       const rows = await postRepo.listPublicTags();
       return serializeTagCloud(rows);
+    },
+
+    /**
+     * 详情页预渲染候选集（`generateStaticParams`）。
+     * 最近 100 篇 + 热门 50 篇，按 slug 去重 —— 同一篇可能同时落进两路。
+     */
+    async listStaticParams(): Promise<{ slug: string }[]> {
+      const rows = await postRepo.listTopForStatic(100, 50);
+      const seen = new Set<string>();
+      const out: { slug: string }[] = [];
+      for (const row of rows) {
+        if (seen.has(row.slug)) continue;
+        seen.add(row.slug);
+        out.push({ slug: row.slug });
+      }
+      return out;
+    },
+
+    /** 作者主页预渲染候选集 */
+    async listAuthorStaticParams(): Promise<{ username: string }[]> {
+      const names = await postRepo.listActiveAuthorUsernames(100);
+      return names.map((username) => ({ username }));
+    },
+
+    /** 标签归档预渲染候选集 */
+    async listTagStaticParams(): Promise<{ tag: string }[]> {
+      const names = await postRepo.listActiveTagNames(100);
+      return names.map((tag) => ({ tag }));
     },
 
     /**

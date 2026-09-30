@@ -16,6 +16,8 @@
 # next.js
 /.next/
 /out/
+# 构建目录的临时转移副本（沙箱删除保护下用 mv 让位给新构建，随后手动清理）
+/.next-stale*/
 
 # production
 /build

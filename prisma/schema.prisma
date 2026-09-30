@@ -309,6 +309,9 @@ model BlogPost {
   excerpt        String?        @db.VarChar(300)
   contentMd      String         @db.Text
   contentHtml    String?        @db.Text
+  /// 目录（h2/h3 抽取结果）。与 contentHtml 同源同事务写入——
+  /// 详情页是 ISR，不能每次请求都重新解析 Markdown，故随渲染结果一并固化。
+  toc            Json?
   coverImage     String?
   status         PostStatus     @default(DRAFT)
   visibility     PostVisibility @default(PUBLIC)

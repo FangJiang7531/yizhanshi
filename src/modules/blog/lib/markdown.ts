@@ -143,6 +143,24 @@ function makeEnhancePlugin(toc: TocItem[]): Plugin {
           node.properties.loading = "lazy";
         }
 
+        if (node.tagName === "pre") {
+          // 代码块必须包一层非滚动容器：语言标签与复制按钮要绝对定位，
+          // 而 <pre> 自身是横向滚动容器——挂在它里面的元素会跟着代码一起滚走。
+          node.children?.forEach((child) => walk(child, node));
+          if (parent?.children) {
+            const index = parent.children.indexOf(node);
+            if (index >= 0) {
+              parent.children[index] = {
+                type: "element",
+                tagName: "div",
+                properties: { className: ["blog-code"] },
+                children: [node],
+              };
+            }
+          }
+          return;
+        }
+
         if (node.tagName === "table") {
           // 先处理表格内部（链接/图片等），再就地包裹替换
           node.children?.forEach((child) => walk(child, node));
@@ -192,6 +210,26 @@ export async function renderMarkdown(markdown: string): Promise<RenderResult> {
 export async function renderMarkdownHtml(markdown: string): Promise<string> {
   const { html } = await renderMarkdown(markdown);
   return html;
+}
+
+/**
+ * 归一化从数据库 `Json` 列读回的目录数据。
+ *
+ * 为什么需要：Prisma 的 `Json?` 在类型上是 `JsonValue`（任意结构），历史数据、
+ * 手工 SQL 修改都可能塞进非预期形状。详情页是 SSG/ISR，渲染期抛错会让整页 500，
+ * 因此这里做**宽容降级**：形状不合法就丢弃该项，全部不合法则返回空目录（页面只是不显示目录）。
+ */
+export function normalizeToc(raw: unknown): TocItem[] {
+  if (!Array.isArray(raw)) return [];
+  const out: TocItem[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const { depth, text, id } = item as Record<string, unknown>;
+    if (typeof text !== "string" || typeof id !== "string") continue;
+    if (depth !== 2 && depth !== 3) continue;
+    out.push({ depth, text, id });
+  }
+  return out;
 }
 
 // ---------- 评论轻量 Markdown（加粗 / 斜体 / 行内代码 / 链接）----------

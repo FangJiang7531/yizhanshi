@@ -345,6 +345,58 @@ export function createPostRepository(db: Db = defaultPrisma) {
       };
     },
 
+    /**
+     * 预渲染候选集（`generateStaticParams` 用）：最近 N 篇 + 热门 M 篇。
+     *
+     * 为什么分两路取：纯按时间取会把早年高赞的老文排除在构建产物之外，
+     * 而纯按热度取又会漏掉刚发布的新文 —— 二者都只覆盖一部分真实访问。
+     * 结果在服务层去重，`dynamicParams: true` 兜住其余文章（按需生成并缓存）。
+     */
+    async listTopForStatic(recentTake: number, hotTake: number) {
+      const select = { slug: true, updatedAt: true } as const;
+      const [recent, hot] = await Promise.all([
+        db.blogPost.findMany({
+          where: PUBLIC_LISTABLE,
+          select,
+          orderBy: [{ publishedAt: "desc" }, { id: "desc" }],
+          take: recentTake,
+        }),
+        db.blogPost.findMany({
+          where: PUBLIC_LISTABLE,
+          select,
+          orderBy: [{ likeCount: "desc" }, { viewCount: "desc" }, { id: "desc" }],
+          take: hotTake,
+        }),
+      ]);
+      return [...recent, ...hot];
+    },
+
+    /**
+     * 有公开文章的作者用户名（作者主页的预渲染候选集）。
+     * 只取有公开文章的人：没有公开文章的作者页没有任何内容可展示。
+     */
+    async listActiveAuthorUsernames(take: number) {
+      const rows = await db.blogPost.findMany({
+        where: PUBLIC_LISTABLE,
+        select: { user: { select: { username: true } } },
+        distinct: ["userId"],
+        orderBy: { publishedAt: "desc" },
+        take,
+      });
+      return rows.map((r) => r.user.username);
+    },
+
+    /** 标签归档的预渲染候选集：有公开文章的 POST 域标签名 */
+    async listActiveTagNames(take: number) {
+      const rows = await db.tag.findMany({
+        where: { scope: "POST", postLinks: { some: { post: PUBLIC_LISTABLE } } },
+        select: { name: true },
+        orderBy: { name: "asc" },
+        take,
+      });
+      return rows.map((r) => r.name);
+    },
+
     /** 站点地图用：全部公开文章的最小字段集（PUBLIC 才进 sitemap） */
     listSitemapEntries() {
       return db.blogPost.findMany({

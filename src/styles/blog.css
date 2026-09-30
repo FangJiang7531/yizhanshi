@@ -1,0 +1,345 @@
+/* ============================================================
+   博客公开侧样式（PRD §5.4 正文规格 / §8.2 排版差异化）
+   —— 与平台同一套语义变量，差异只体现在留白、节奏与阅读栏宽度。
+   颜色一律走 var(--color-*)，唯一例外是代码块配色：它是一个自成体系的
+   子系统（深色底 + 语法调色板），无法从主题变量推导，故集中定义在
+   --code-* 前缀下，便于整体替换。
+
+   ⚠️ 为什么单独成文件而不是塞进 themes/index.css：
+   themes/index.css 是「主题矩阵」（6 主题 × 明暗），只放语义变量；
+   板块级排版规则放进去会让主题文件变成所有板块样式的堆场。
+   ============================================================ */
+
+:root {
+  /* PRD §5.4 要求文章标题使用 --font-serif，但主题矩阵只定义了
+     sans / mono。此处补齐衬线回退链（不修改主题矩阵，避免影响其他板块）。 */
+  --font-serif: Georgia, "Songti SC", "Noto Serif SC", "Source Han Serif SC", serif;
+
+  /* 代码块配色（深色底，与明暗模式无关——PRD §5.4「代码块：深色底」） */
+  --code-bg: #14181f;
+  --code-fg: #e6edf3;
+  --code-muted: #8b949e;
+  --code-border: #2b3340;
+  --code-keyword: #ff7b72;
+  --code-string: #a5d6ff;
+  --code-number: #79c0ff;
+  --code-function: #d2a8ff;
+  --code-attr: #ffa657;
+  --code-tag: #7ee787;
+}
+
+/* ---------- 阅读栏正文 ---------- */
+
+.blog-prose {
+  font-size: 16.5px;
+  line-height: 1.8;
+  color: var(--color-text-primary);
+  overflow-wrap: break-word;
+}
+
+.blog-prose > * + * {
+  margin-top: 1.5em;
+}
+
+.blog-prose h2,
+.blog-prose h3 {
+  font-weight: 650;
+  line-height: 1.4;
+  /* 顶栏 56px + 余量：目录跳转时标题不被吸顶栏挡住 */
+  scroll-margin-top: 76px;
+}
+
+.blog-prose h2 {
+  margin-top: 2.2em;
+  font-size: 1.35em;
+}
+
+.blog-prose h3 {
+  margin-top: 1.7em;
+  font-size: 1.12em;
+}
+
+.blog-prose h2 + *,
+.blog-prose h3 + * {
+  margin-top: 0.7em;
+}
+
+.blog-prose a {
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+
+.blog-prose strong {
+  font-weight: 650;
+}
+
+.blog-prose ul,
+.blog-prose ol {
+  padding-left: 1.4em;
+}
+
+.blog-prose ul {
+  list-style: disc;
+}
+
+.blog-prose ol {
+  list-style: decimal;
+}
+
+.blog-prose li + li {
+  margin-top: 0.4em;
+}
+
+.blog-prose blockquote {
+  padding-left: 1em;
+  border-left: 3px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+  color: var(--color-text-secondary);
+}
+
+.blog-prose hr {
+  border: 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.blog-prose img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin-inline: auto;
+  border-radius: var(--radius);
+  cursor: zoom-in;
+}
+
+/* 行内代码 */
+.blog-prose :not(pre) > code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+  background-color: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+}
+
+/* GFM 任务列表：只读 checkbox，不参与正文流式排版 */
+.blog-prose li > input[type="checkbox"] {
+  margin-right: 0.5em;
+}
+
+/* 表格：由 markdown 管线的 .table-scroll 包裹，横向滚动而不撑破阅读栏 */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.blog-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.94em;
+}
+
+.blog-prose th,
+.blog-prose td {
+  border: 1px solid var(--color-border);
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.blog-prose th {
+  background-color: var(--color-bg-elevated);
+  font-weight: 600;
+}
+
+/* ---------- 代码块（深色底 + 语言标签 + 复制按钮） ---------- */
+
+.blog-code {
+  position: relative;
+  margin-top: 1.6em;
+}
+
+/* 语言标签与复制按钮占位：给代码块顶部留出呼吸空间 */
+.blog-code pre {
+  margin: 0;
+  padding: 34px 16px 16px;
+  overflow-x: auto;
+  border-radius: var(--radius);
+  background-color: var(--code-bg);
+  border: 1px solid var(--code-border);
+  color: var(--code-fg);
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  line-height: 1.7;
+}
+
+/* 代码块内的行内代码样式不得生效 */
+.blog-code pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: inherit;
+  color: inherit;
+}
+
+.blog-code-lang {
+  position: absolute;
+  top: 9px;
+  left: 14px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--code-muted);
+  user-select: none;
+}
+
+.blog-code-copy {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--code-border);
+  background-color: color-mix(in srgb, var(--code-bg) 70%, #ffffff 8%);
+  color: var(--code-muted);
+  font-size: 11px;
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
+}
+
+.blog-code-copy:hover {
+  color: var(--code-fg);
+  border-color: color-mix(in srgb, var(--code-fg) 35%, transparent);
+}
+
+.blog-code-copy[data-copied="true"] {
+  color: var(--code-tag);
+  border-color: color-mix(in srgb, var(--code-tag) 45%, transparent);
+}
+
+/* ---------- hljs 语法着色（rehype-highlight 输出） ---------- */
+
+.hljs-comment,
+.hljs-quote {
+  color: var(--code-muted);
+  font-style: italic;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-doctag,
+.hljs-name {
+  color: var(--code-keyword);
+}
+
+.hljs-string,
+.hljs-regexp,
+.hljs-addition,
+.hljs-attribute,
+.hljs-meta .hljs-string {
+  color: var(--code-string);
+}
+
+.hljs-number,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-link {
+  color: var(--code-number);
+}
+
+.hljs-title,
+.hljs-section,
+.hljs-title.class_,
+.hljs-title.function_,
+.hljs-selector-id,
+.hljs-selector-class {
+  color: var(--code-function);
+}
+
+.hljs-attr,
+.hljs-selector-attr,
+.hljs-selector-pseudo,
+.hljs-params,
+.hljs-property {
+  color: var(--code-attr);
+}
+
+.hljs-built_in,
+.hljs-type,
+.hljs-tag {
+  color: var(--code-tag);
+}
+
+.hljs-deletion {
+  color: var(--code-keyword);
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-strong {
+  font-weight: 700;
+}
+
+/* ---------- 图片放大（Lightbox） ---------- */
+
+.blog-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background-color: color-mix(in srgb, #000000 82%, transparent);
+  animation: lightbox-fade var(--duration-base) var(--ease-out);
+}
+
+.blog-lightbox img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: var(--radius);
+  animation: lightbox-zoom var(--duration-base) var(--ease-out);
+}
+
+@keyframes lightbox-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes lightbox-zoom {
+  from {
+    transform: scale(0.96);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+/* ---------- 博客专属动效节奏（PRD §8.3：220–400ms，比平台更舒缓） ---------- */
+
+.blog-rise {
+  animation: blog-rise var(--duration-slow) var(--ease-out);
+}
+
+@keyframes blog-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

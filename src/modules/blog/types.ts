@@ -62,12 +62,17 @@ export type PostListItemDTO = {
 /** 详情：公开视角（含预渲染 HTML，不含 Markdown 原文；私密/草稿走作者视角） */
 export type PostDetailDTO = PostListItemDTO & {
   contentHtml: string;
+  /** 目录（h2/h3）；发布时随 HTML 一并固化，详情页直接读取而无需重新解析 Markdown */
+  toc: TocItemDTO[];
   auditNote: string | null;
   seoTitle: string | null;
   seoDesc: string | null;
   ogImage: string | null;
   canonicalUrl: string | null;
 };
+
+/** 目录项（与 lib/markdown 的 TocItem 同构，此处复述一遍以保持 types.ts 零依赖） */
+export type TocItemDTO = { depth: number; text: string; id: string };
 
 /** 编辑视角：额外给出 Markdown 原文与 slug（编辑器与"更新链接标识"用） */
 export type PostEditDTO = PostDetailDTO & {

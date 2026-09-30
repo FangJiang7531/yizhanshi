@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getPrincipal, type SessionUser } from "@/lib/auth/session";
 import { requireNonGuest, requireRole } from "@/lib/auth/guards";
-import { fail, ok, UnauthorizedError, type ActionResult } from "@/lib/errors";
+import { fail, ok, type ActionResult } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import {
   archivePostSchema,
@@ -233,13 +233,22 @@ export async function moderatePostAction(raw: unknown): Promise<ActionResult<{ r
 }
 
 /**
- * 供客户端在"点赞/评论后刷新服务端渲染内容"时调用（可选）。
- * 与 listMineAction 同构，但不做缓存失效 —— 详情页是 ISR，不该因一次互动而整体重算。
+ * 查看者身份查询 —— 供**公开页**的客户端组件判断登录态（Gate 5.2 强制约束）。
+ *
+ * 为什么必须有这个 Action：详情页是 ISR 缓存的，服务端渲染时读 Session 会导致
+ * ① ISR 失效（动态 API 使路由转为动态渲染）② 更严重的是「用户 A 的登录态被缓存
+ * 后展示给用户 B」。因此公开页的服务端只输出**与身份无关**的内容，登录态一律
+ * 由客户端组件在挂载后自行查询。
+ *
+ * 匿名访问是**正常状态**而非错误（公开页允许未登录），故返回 ok 而不是
+ * UnauthorizedError —— 否则客户端要靠"捕获错误"来判断未登录，语义模糊。
  */
-export async function getViewerIdentityAction(): Promise<ActionResult<{ userId: string | null; isGuest: boolean; username: string | null }>> {
+export async function getViewerIdentityAction(): Promise<
+  ActionResult<{ userId: string | null; isGuest: boolean; username: string | null }>
+> {
   try {
     const principal = await getPrincipal();
-    if (!principal) return fail(new UnauthorizedError());
+    if (!principal) return ok({ userId: null, isGuest: false, username: null });
     if ("guest" in principal) return ok({ userId: null, isGuest: true, username: null });
     const user: SessionUser = principal.user;
     return ok({ userId: user.id, isGuest: false, username: user.username });

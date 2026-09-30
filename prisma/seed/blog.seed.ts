@@ -8,7 +8,7 @@
  * 这里统一使用相对路径导入，使种子逻辑与 tsx CLI 的执行上下文解耦
  * （实测 tsx 能解析 tsconfig 的 `@/` 别名，但种子脚本保持零别名更稳）。
  */
-import type { PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 import { renderMarkdown } from "../../src/modules/blog/lib/markdown";
 import { calcStats } from "../../src/modules/blog/lib/stats";
 import { buildHabitCardMarker, buildTaskCardMarker } from "../../src/modules/blog/lib/data-cards";
@@ -232,7 +232,7 @@ async function createPost(
   spec: SeedPost,
   tagIds: Map<string, string>,
 ) {
-  const { html } = await renderMarkdown(spec.contentMd);
+  const { html, toc } = await renderMarkdown(spec.contentMd);
   const { wordCount, readingMinutes } = calcStats(spec.contentMd);
   const now = Date.now();
   const publishedAt =
@@ -246,6 +246,7 @@ async function createPost(
       excerpt: spec.excerpt ?? (spec.contentMd.slice(0, 100) || null),
       contentMd: spec.contentMd,
       contentHtml: html,
+      toc: toc as unknown as Prisma.InputJsonValue,
       status: spec.status,
       visibility: spec.visibility,
       auditStatus: spec.auditStatus,

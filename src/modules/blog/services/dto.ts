@@ -1,4 +1,5 @@
 import type { BlogPost, Comment } from "@prisma/client";
+import { normalizeToc } from "../lib/markdown";
 import type {
   AuthorDTO,
   CommentDTO,
@@ -71,6 +72,7 @@ export function serializePostDetail(post: PostWithRelations): PostDetailDTO {
   return {
     ...serializePostListItem(post),
     contentHtml: post.contentHtml ?? "",
+    toc: normalizeToc(post.toc),
     auditNote: post.auditNote,
     seoTitle: post.seoTitle,
     seoDesc: post.seoDesc,

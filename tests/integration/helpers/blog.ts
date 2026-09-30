@@ -1,4 +1,4 @@
-import type { AuditStatus, PostStatus, PostVisibility, Role } from "@prisma/client";
+import type { AuditStatus, PostStatus, PostVisibility, Prisma, Role } from "@prisma/client";
 import { loadSensitiveWords } from "@/modules/blog/lib/sensitive-filter";
 import { renderMarkdown } from "@/modules/blog/lib/markdown";
 import { calcStats } from "@/modules/blog/lib/stats";
@@ -56,10 +56,10 @@ export type PostSpec = {
   tags?: string[];
 };
 
-/** 直接落库构造文章（含 contentHtml 与派生字段，模拟"已发布"的完整形态） */
+/** 直接落库构造文章（含 contentHtml + toc 与派生字段，模拟"已发布"的完整形态） */
 export async function createPost(userId: string, spec: PostSpec) {
   const contentMd = spec.contentMd ?? `这是 ${spec.title} 的正文。`;
-  const { html } = await renderMarkdown(contentMd);
+  const { html, toc } = await renderMarkdown(contentMd);
   const stats = calcStats(contentMd);
 
   const tagIds: string[] = [];
@@ -80,6 +80,7 @@ export async function createPost(userId: string, spec: PostSpec) {
       title: spec.title,
       contentMd,
       contentHtml: html,
+      toc: toc as unknown as Prisma.InputJsonValue,
       status: spec.status ?? "PUBLISHED",
       visibility: spec.visibility ?? "PUBLIC",
       auditStatus: spec.auditStatus ?? "PASSED",
