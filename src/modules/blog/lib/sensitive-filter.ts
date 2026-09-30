@@ -274,6 +274,11 @@ const globalStore = globalThis as unknown as { __pwbSensitiveFilter?: SensitiveF
 export const sensitiveFilter: SensitiveFilter =
   globalStore.__pwbSensitiveFilter ?? (globalStore.__pwbSensitiveFilter = new SensitiveFilter());
 
+/** 词库加载状态（挂 globalThis，避免 dev 热重载时丢失"已加载"标记而重复查库） */
+type LoadState = { loaded: boolean; loading: Promise<number> | null };
+const loadStateStore = globalThis as unknown as { __pwbSensitiveLoadState?: LoadState };
+const loadState: LoadState = (loadStateStore.__pwbSensitiveLoadState ??= { loaded: false, loading: null });
+
 /** 从数据库加载词库（应用启动 / 管理端变更后调用） */
 export async function loadSensitiveWords(): Promise<number> {
   const { prisma } = await import("@/lib/db");
@@ -282,5 +287,27 @@ export async function loadSensitiveWords(): Promise<number> {
     select: { word: true, level: true },
   });
   sensitiveFilter.setWords(rows.map((r) => ({ word: r.word, level: r.level as Level })));
+  loadState.loaded = true;
   return rows.length;
+}
+
+/**
+ * 惰性加载保障：任何审核入口在使用词库前调用一次。
+ *
+ * 为什么需要它：词库空载时 `scan()` 恒返回空数组，审核会**静默失效**——
+ * 这是最危险的一类 bug（不报错，但防线消失）。这里用"未加载则加载一次"兜底，
+ * 与 instrumentation 的启动加载形成双保险（后者失败也不影响前者生效）。
+ */
+export async function ensureSensitiveWordsLoaded(): Promise<void> {
+  if (loadState.loaded) return;
+  loadState.loading ??= loadSensitiveWords().finally(() => {
+    loadState.loading = null;
+  });
+  await loadState.loading;
+}
+
+/** 仅供测试重置（模拟"应用冷启动、词库尚未加载"） */
+export function __resetSensitiveWordsLoadedForTest(): void {
+  loadState.loaded = false;
+  loadState.loading = null;
 }

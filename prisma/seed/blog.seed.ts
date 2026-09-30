@@ -4,8 +4,9 @@
  * - P-01 ~ P-15 固定测试数据集：覆盖全部可见性状态与边界（供单测/集成/E2E 使用）
  * - 互动数据（点赞/评论/浏览）：保证冗余计数与明细一致（对账脚本基准）
  *
- * 注意：本文件由 prisma/seed.ts 调用，运行环境是 tsx（非 Next），
- * 因此所有内部导入必须使用相对路径（不能用 @/ 别名）。
+ * 注意：本文件由 prisma/seed.ts 调用，运行环境是 tsx（非 Next）。
+ * 这里统一使用相对路径导入，使种子逻辑与 tsx CLI 的执行上下文解耦
+ * （实测 tsx 能解析 tsconfig 的 `@/` 别名，但种子脚本保持零别名更稳）。
  */
 import type { PrismaClient } from "@prisma/client";
 import { renderMarkdown } from "../../src/modules/blog/lib/markdown";

@@ -25,12 +25,20 @@ export function setupTestDb(): Promise<void> {
   return ready;
 }
 
-/** 清空全部业务数据（级联删除），让每个套件从干净状态开始 */
+/**
+ * 清空全部业务数据（级联删除），让每个套件从干净状态开始。
+ *
+ * 用户删除会级联带走 Task / Tag / Habit / BlogPost / Comment / PostLike /
+ * PostRepost / CommentLike / PostView / PostTag（全部声明了 onDelete: Cascade）。
+ * 但 SensitiveWord 与 AuditRecord 是**无主数据**（不挂在 User 下），必须显式清理。
+ */
 export async function resetDb(): Promise<void> {
   await prisma.user.deleteMany();
   await prisma.verificationCode.deleteMany();
   await prisma.rateLimitBucket.deleteMany();
   await prisma.job.deleteMany();
+  await prisma.auditRecord.deleteMany();
+  await prisma.sensitiveWord.deleteMany();
 }
 
 let counter = 0;
