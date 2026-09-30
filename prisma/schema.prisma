@@ -43,34 +43,79 @@ enum Priority {
   HIGH
 }
 
+// ---------- 博客板块（阶段二）----------
+
+enum PostStatus {
+  DRAFT
+  REVIEW
+  PUBLISHED
+  ARCHIVED
+}
+
+enum PostVisibility {
+  PUBLIC
+  UNLISTED
+  PRIVATE
+}
+
+enum AuditStatus {
+  PENDING
+  PASSED
+  REJECTED
+}
+
+/// 标签作用域：任务标签与博客标签共用 Tag 表，靠 scope 隔离（约束放松式迁移）
+enum TagScope {
+  TASK
+  POST
+}
+
+enum SensitiveLevel {
+  BLOCK
+  REVIEW
+  MASK
+}
+
+enum CommentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  DELETED
+}
+
 // ---------- 用户与认证 ----------
 
 model User {
-  id              String       @id @default(cuid())
+  id              String     @id @default(cuid())
   /// 统一小写存储（zhang_san 与 Zhang_San 视为同一用户）
-  username        String       @unique
+  username        String     @unique
   /// 统一小写存储
-  email           String       @unique
+  email           String     @unique
   /// Argon2id 哈希；OAuth 注册用户可为空。密码永不落明文
   passwordHash    String?
   displayName     String?
   avatarUrl       String?
-  role            Role         @default(USER)
+  role            Role       @default(USER)
   emailVerifiedAt DateTime?
   /// IANA 时区名（如 Asia/Shanghai）
-  timezone        String       @default("Asia/Shanghai")
-  status          UserStatus   @default(ACTIVE)
+  timezone        String     @default("Asia/Shanghai")
+  status          UserStatus @default(ACTIVE)
   lastLoginAt     DateTime?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
 
-  sessions          Session[]
-  setting           UserSetting?
-  tasks             Task[]
-  tags              Tag[]
-  habits            Habit[]
-  habitLogs         HabitLog[]
-  authAccounts      AuthAccount[]
+  sessions     Session[]
+  setting      UserSetting?
+  tasks        Task[]
+  tags         Tag[]
+  habits       Habit[]
+  habitLogs    HabitLog[]
+  authAccounts AuthAccount[]
+  posts        BlogPost[]
+  comments     Comment[]
+  postLikes    PostLike[]
+  reposts      PostRepost[]
+  commentLikes CommentLike[]
 }
 
 model Session {
@@ -184,16 +229,19 @@ model Task {
 model Tag {
   id        String   @id @default(cuid())
   userId    String
+  /// 标签作用域：TASK（任务清单）/ POST（博客文章）。所有查询必须显式带 scope（仓储层不提供无 scope 方法）
+  scope     TagScope @default(TASK)
   name      String
   color     String   @default("#6366F1")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tasks TaskTag[]
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tasks     TaskTag[]
+  postLinks PostTag[]
 
-  @@unique([userId, name])
-  @@index([userId])
+  @@unique([userId, scope, name])
+  @@index([userId, scope])
 }
 
 model TaskTag {
@@ -249,36 +297,172 @@ model HabitLog {
 
 // ---------- 预留模型（阶段二+，未启用；仅声明以固化命名规范） ----------
 
-/// 预留：博客 / CMS（阶段二）
-model BlogPost {
-  id          String    @id @default(cuid())
-  userId      String
-  slug        String    @unique
-  title       String
-  contentMd   String
-  excerpt     String?
-  status      String    @default("DRAFT")
-  publishedAt DateTime?
-  viewCount   Int       @default(0)
-  seoTitle    String?
-  seoDesc     String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+// ---------- 博客（阶段二落地）----------
 
-  @@index([userId, status])
+/// 文章主体。contentMd 为唯一真源；contentHtml 为服务端预渲染缓存（供 RSS 与 SSG 复用）
+model BlogPost {
+  id             String         @id @default(cuid())
+  userId         String
+  /// 全局唯一 URL 标识；改标题不自动改 slug（避免已收录链接失效）
+  slug           String         @unique
+  title          String
+  excerpt        String?        @db.VarChar(300)
+  contentMd      String         @db.Text
+  contentHtml    String?        @db.Text
+  coverImage     String?
+  status         PostStatus     @default(DRAFT)
+  visibility     PostVisibility @default(PUBLIC)
+  /// 仅 PASSED 可 PUBLISHED（审核门禁）
+  auditStatus    AuditStatus    @default(PENDING)
+  /// 审核意见（驳回原因），作者可见
+  auditNote      String?
+  /// 首次发布时间；编辑已发布文章不更新此值
+  publishedAt    DateTime?
+  seoTitle       String?        @db.VarChar(60)
+  seoDesc        String?        @db.VarChar(160)
+  ogImage        String?
+  canonicalUrl   String?
+  wordCount      Int            @default(0)
+  /// 中文按 400 字/分钟估算，最少 1
+  readingMinutes Int            @default(1)
+  viewCount      Int            @default(0)
+  /// 冗余计数：与明细表同事务更新（对账脚本兜底）
+  likeCount      Int            @default(0)
+  commentCount   Int            @default(0)
+  repostCount    Int            @default(0)
+  shareCount     Int            @default(0)
+  allowComment   Boolean        @default(true)
+  allowRepost    Boolean        @default(true)
+  deletedAt      DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comments Comment[]
+  tags     PostTag[]
+  likes    PostLike[]
+  reposts  PostRepost[]
+  views    PostView[]
+
+  @@index([userId, status, deletedAt])
+  @@index([status, visibility, publishedAt(sort: Desc)])
+  @@index([status, visibility, likeCount(sort: Desc)])
+  @@index([auditStatus])
 }
 
-/// 预留：博客评论（阶段二）
+/// 两级楼中楼评论：parentId 只允许指向顶层评论，写入时自动上提（深度恒 ≤2）
 model Comment {
-  id        String   @id @default(cuid())
+  id          String        @id @default(cuid())
+  postId      String
+  userId      String
+  parentId    String?
+  content     String        @db.Text
+  status      CommentStatus @default(PENDING)
+  auditStatus AuditStatus   @default(PENDING)
+  likeCount   Int           @default(0)
+  /// 软删除：保留"该评论已删除"占位，避免楼层错乱
+  deletedAt   DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  post    BlogPost      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent  Comment?      @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies Comment[]     @relation("CommentReplies")
+  likes   CommentLike[]
+
+  @@index([postId, status, createdAt])
+  @@index([parentId])
+  @@index([userId])
+}
+
+model PostLike {
   postId    String
   userId    String
-  content   String
-  parentId  String?
-  status    String   @default("VISIBLE")
   createdAt DateTime @default(now())
 
-  @@index([postId, status])
+  post BlogPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([postId, userId])
+  @@index([userId, createdAt])
+}
+
+model PostRepost {
+  postId    String
+  userId    String
+  /// 转发语 ≤200 字
+  comment   String?  @db.VarChar(200)
+  createdAt DateTime @default(now())
+
+  post BlogPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([postId, userId])
+  @@index([userId, createdAt])
+}
+
+model CommentLike {
+  commentId String
+  userId    String
+  createdAt DateTime @default(now())
+
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([commentId, userId])
+}
+
+/// 浏览去重：viewerHash 为 IP+UA 哈希（不存原始 IP，与 Session.ipHash 一致）
+model PostView {
+  id         String   @id @default(cuid())
+  postId     String
+  viewerHash String
+  viewDate   DateTime @db.Date
+  createdAt  DateTime @default(now())
+
+  post BlogPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, viewerHash, viewDate])
+  @@index([postId, viewDate])
+}
+
+model PostTag {
+  postId String
+  tagId  String
+
+  post BlogPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tag  Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([postId, tagId])
+  @@index([tagId])
+}
+
+model SensitiveWord {
+  id        String         @id @default(cuid())
+  word      String         @unique
+  level     SensitiveLevel @default(REVIEW)
+  category  String?
+  enabled   Boolean        @default(true)
+  createdAt DateTime       @default(now())
+
+  @@index([enabled, level])
+}
+
+model AuditRecord {
+  id           String   @id @default(cuid())
+  /// "POST" | "COMMENT"
+  targetType   String
+  targetId     String
+  /// "SUBMIT" | "PASS" | "REJECT" | "MASK"
+  action       String
+  matchedWords Json?
+  reviewerId   String?
+  note         String?
+  createdAt    DateTime @default(now())
+
+  @@index([targetType, targetId])
+  @@index([createdAt])
 }
 
 /// 预留：URL 短链（阶段三）
@@ -325,15 +509,15 @@ model Bookmark {
 
 /// 预留：问卷（阶段五）
 model Survey {
-  id           String   @id @default(cuid())
-  userId       String
-  title        String
-  description  String?
-  status       String   @default("DRAFT")
-  isAnonymous  Boolean  @default(true)
-  schemaJson   String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id          String   @id @default(cuid())
+  userId      String
+  title       String
+  description String?
+  status      String   @default("DRAFT")
+  isAnonymous Boolean  @default(true)
+  schemaJson  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 /// 预留：问卷回执（阶段五）
