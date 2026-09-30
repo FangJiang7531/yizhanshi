@@ -102,6 +102,8 @@ export type MineStatsDTO = {
 /** 评论 DTO（两级：顶层含 replies，回复不再有 replies —— 深度恒 ≤2） */
 export type CommentDTO = {
   id: string;
+  /** 所属顶层评论 id；null = 顶层（SSE 增量流的归属判定依赖此字段） */
+  parentId: string | null;
   content: string;
   /** 轻量 Markdown 渲染后的安全 HTML */
   contentHtml: string;
@@ -122,6 +124,15 @@ export type CommentListDTO = {
   items: CommentDTO[];
   total: number;
   nextCursor: string | null;
+};
+
+/** 待审评论（审核队列行：轻量字段 + 所属文章定位） */
+export type PendingCommentDTO = {
+  id: string;
+  content: string;
+  createdAt: string;
+  author: AuthorDTO;
+  post: { id: string; slug: string; title: string };
 };
 
 /** 搜索结果项 */

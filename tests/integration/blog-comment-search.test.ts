@@ -184,6 +184,56 @@ describe("Gate 3.4 · 评论两级树", () => {
   });
 });
 
+describe("M9-M10 · 评论 SSE 增量与互动状态", () => {
+  it("listNewSince：只推 APPROVED（含软删占位），createdAt 游标单调不重不漏", async () => {
+    const author = await createUser("USER", "author2");
+    const u1 = await createUser("USER", "sse1");
+    const u2 = await createUser("USER", "sse2");
+    const post = await createPost(author.id, { slug: "sse-post", title: "实时文章" });
+
+    const c1 = await commentService.create(u1.id, { postId: post.id, content: "第一条" }, { isAdmin: false });
+
+    // 游标 = c1 之后 → 此刻无新评论
+    const since1 = new Date(new Date(c1.createdAt).getTime() + 1);
+    expect(await commentService.listNewSince(post.id, since1, { userId: null, isAdmin: false })).toHaveLength(0);
+
+    // 游标 = c1 之前 → c1 可被重放（客户端按 id 去重）
+    const since0 = new Date(new Date(c1.createdAt).getTime() - 1000);
+    const replay = await commentService.listNewSince(post.id, since0, { userId: null, isAdmin: false });
+    expect(replay.map((c) => c.id)).toContain(c1.id);
+
+    // 新增一条 + 一条回复 → 都在增量里（回复也要实时推送）
+    const c2 = await commentService.create(u2.id, { postId: post.id, content: "第二条" }, { isAdmin: false });
+    const reply = await commentService.create(
+      u1.id,
+      { postId: post.id, parentId: c1.id, content: "实时回复" },
+      { isAdmin: false },
+    );
+    const fresh = await commentService.listNewSince(post.id, since1, { userId: null, isAdmin: false });
+    const ids = fresh.map((c) => c.id);
+    expect(ids).toContain(c2.id);
+    expect(ids).toContain(reply.id);
+    expect(ids).not.toContain(c1.id); // 游标之前的不再推
+  });
+
+  it("counter.getMyReactions：toggle 往返一致（liked/reposted 初态供互动栏渲染）", async () => {
+    const { createCounterService } = await import("@/modules/blog/services/counter.service");
+    const counter = createCounterService();
+    const author = await createUser("USER", "author3");
+    const viewer = await createUser("USER", "viewer3");
+    const post = await createPost(author.id, { slug: "react-post", title: "互动文章" });
+
+    expect(await counter.getMyReactions(post.id, viewer.id)).toEqual({ liked: false, reposted: false });
+
+    await counter.toggleLike(post.id, viewer.id);
+    await counter.toggleRepost(post.id, viewer.id, "路过");
+    expect(await counter.getMyReactions(post.id, viewer.id)).toEqual({ liked: true, reposted: true });
+
+    await counter.toggleLike(post.id, viewer.id);
+    expect(await counter.getMyReactions(post.id, viewer.id)).toEqual({ liked: false, reposted: true });
+  });
+});
+
 describe("Gate 3.4 · 搜索", () => {
   it("命中标题/摘要/正文，且排除草稿（Gate 3.4-3 / A-14）", async () => {
     const author = await createUser("USER", "author");

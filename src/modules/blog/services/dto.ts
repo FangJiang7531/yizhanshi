@@ -95,6 +95,7 @@ export function serializeComment(
   const isOwn = opts.viewerId !== null && opts.viewerId === comment.userId;
   return {
     id: comment.id,
+    parentId: comment.parentId,
     content: deleted ? "" : comment.content,
     contentHtml: deleted ? "" : opts.contentHtml,
     status: comment.status,

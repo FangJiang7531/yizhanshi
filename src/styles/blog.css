@@ -407,3 +407,82 @@
     animation: none;
   }
 }
+
+/* ---------- 详情页互动栏（PRD §5.5：点赞弹跳 300ms / 数字滚动 200ms）---------- */
+
+.interaction-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-surface);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1;
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    transform 80ms var(--ease-out);
+}
+
+.interaction-btn:hover:not(:disabled) {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.interaction-btn:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.interaction-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* 已激活态（已赞/已转发）：主色填充 */
+.interaction-btn[data-active="true"] {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+}
+
+/* 点赞弹跳（PRD §5.5：scale 1→1.3→1，300ms）；减少动效偏好下退化为普通过渡 */
+.interaction-pop {
+  animation: interaction-pop 300ms var(--ease-out);
+}
+
+@keyframes interaction-pop {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.3);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .interaction-pop {
+    animation: none;
+  }
+}
+
+/* 评论插入展开动画（PRD §5.6：成功后 300ms 展开插入） */
+.comment-enter {
+  animation: comment-enter 300ms var(--ease-out);
+}
+
+@keyframes comment-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

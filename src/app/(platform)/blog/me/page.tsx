@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, ShieldCheck } from "lucide-react";
 import { getPrincipal } from "@/lib/auth/session";
 import { createPostService } from "@/modules/blog/services/post.service";
 import { MyPosts } from "@/modules/blog/components/manage/my-posts";
@@ -49,10 +49,18 @@ export default async function BlogMePage() {
             ))}
           </div>
         </div>
-        <Link href="/blog/new" className="btn btn-primary gap-1.5 text-sm">
-          <Plus size={15} />
-          写文章
-        </Link>
+        <div className="flex items-center gap-2">
+          {principal.user.role === "ADMIN" && (
+            <Link href="/blog/moderation" className="btn btn-outline gap-1.5 text-sm">
+              <ShieldCheck size={15} aria-hidden />
+              审核队列
+            </Link>
+          )}
+          <Link href="/blog/new" className="btn btn-primary gap-1.5 text-sm">
+            <Plus size={15} aria-hidden />
+            写文章
+          </Link>
+        </div>
       </header>
 
       <MyPosts initialItems={mine.items} initialCursor={mine.nextCursor} initialTab="DRAFT" />

@@ -189,10 +189,38 @@ export function createCommentService(
       return counter.toggleCommentLike(commentId, userId);
     },
 
+    /**
+     * SSE 增量（实时评论流）：晚于 since 的可见评论转 DTO。
+     * 可见性与 list 严格同口径（APPROVED，含软删占位），防止实时流与列表漂移。
+     */
+    async listNewSince(
+      postId: string,
+      since: Date,
+      viewer: CommentViewer,
+      take = 20,
+    ): Promise<CommentDTO[]> {
+      const rows = await commentRepo.listNewSince(postId, since, take);
+      const likedIds = await likedIdSet(viewer.userId, rows.map((r) => r.id));
+      return Promise.all(rows.map((r) => toDTO(r, { viewer, likedIds })));
+    },
+
     // ─────────────────────────── 审核队列（ADMIN）───────────────────────────
 
-    listPending() {
-      return commentRepo.listPending();
+    /** 待审评论（结构化 DTO：作者 + 所属文章定位，供审核队列直接渲染） */
+    async listPending() {
+      const rows = await commentRepo.listPending();
+      return rows.map((r) => ({
+        id: r.id,
+        content: r.content,
+        createdAt: r.createdAt.toISOString(),
+        author: {
+          id: r.user.id,
+          username: r.user.username,
+          displayName: r.user.displayName,
+          avatarUrl: r.user.avatarUrl,
+        },
+        post: { id: r.post.id, slug: r.post.slug, title: r.post.title },
+      }));
     },
 
     /** 人工复核评论：通过 → APPROVED；驳回 → REJECTED（不进入计数） */

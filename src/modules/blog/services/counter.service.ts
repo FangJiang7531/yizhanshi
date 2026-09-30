@@ -106,6 +106,18 @@ async function syncCommentLikeCount(tx: Tx, commentId: string): Promise<number> 
 export function createCounterService(db = defaultPrisma) {
   return {
     /**
+     * 查询当前用户对某文章的互动状态（详情页互动栏挂载时用）。
+     * 与 toggle* 的 toggle 语义配套：UI 需要"已赞/已转发"初态才能渲染正确。
+     */
+    async getMyReactions(postId: string, userId: string) {
+      const [like, repost] = await Promise.all([
+        db.postLike.findFirst({ where: { postId, userId }, select: { userId: true } }),
+        db.postRepost.findFirst({ where: { postId, userId }, select: { userId: true } }),
+      ]);
+      return { liked: like !== null, reposted: repost !== null };
+    },
+
+    /**
      * 点赞切换（幂等 + 计数同事务）。
      * 语义为 toggle：已赞则取消，未赞则点赞。并发多次调用时计数始终自洽。
      */

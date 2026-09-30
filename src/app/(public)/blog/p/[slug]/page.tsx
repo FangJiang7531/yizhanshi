@@ -12,6 +12,8 @@ import { AuthorAvatar } from "@/modules/blog/components/post-card";
 import { TagRow } from "@/modules/blog/components/tag-chip";
 import { formatDate, formatReadingTime, isoDateOnly, truncate } from "@/modules/blog/lib/format";
 import { buildBlogPostingJsonLd, buildBreadcrumbJsonLd, resolveOgImageUrl, safeJsonLd, SITE_NAME } from "@/modules/blog/lib/seo";
+import { InteractionBar } from "@/modules/blog/components/interaction/interaction-bar";
+import { CommentSection } from "@/modules/blog/components/comments/comment-section";
 import { env } from "@/config/env";
 import type { PostDetailDTO } from "@/modules/blog/types";
 
@@ -192,6 +194,23 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
               </div>
             )}
 
+            {/* 互动栏（M9）：点赞/转发/分享/评论锚点/浏览计数。
+                客户端组件，服务端只传 ISR 快照计数——身份相关内容不出现在服务端输出。 */}
+            <div className="mb-6">
+              <InteractionBar
+                postId={post.id}
+                slug={post.slug}
+                title={post.title}
+                counters={{
+                  likeCount: post.likeCount,
+                  commentCount: post.commentCount,
+                  repostCount: post.repostCount,
+                  shareCount: post.shareCount,
+                  viewCount: post.viewCount,
+                }}
+              />
+            </div>
+
             <nav aria-label="上一篇与下一篇" className="grid gap-3 sm:grid-cols-2">
               <AdjacentLink direction="prev" item={adjacent.prev} />
               <AdjacentLink direction="next" item={adjacent.next} />
@@ -223,6 +242,9 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
               </ul>
             </section>
           )}
+
+          {/* 评论区（M10）：整体客户端加载 + SSE 实时；allowComment=false 时组件内显示关闭提示 */}
+          <CommentSection postId={post.id} allowComment={post.allowComment} initialTotal={post.commentCount} />
         </div>
 
         {/* 桌面端右侧悬浮目录 */}

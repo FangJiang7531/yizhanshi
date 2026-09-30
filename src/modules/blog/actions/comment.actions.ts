@@ -9,7 +9,7 @@ import { z } from "zod";
 import { createCommentSchema, deleteCommentSchema, moderateSchema } from "../schemas";
 import { createCommentService } from "../services/comment.service";
 import { prisma } from "@/lib/db";
-import type { CommentDTO, CommentListDTO } from "../types";
+import type { CommentDTO, CommentListDTO, PendingCommentDTO } from "../types";
 
 /**
  * 评论控制器。
@@ -79,7 +79,7 @@ export async function deleteCommentAction(raw: unknown): Promise<ActionResult<{ 
 }
 
 /** 待审评论队列（ADMIN） */
-export async function listPendingCommentsAction(): Promise<ActionResult<unknown>> {
+export async function listPendingCommentsAction(): Promise<ActionResult<PendingCommentDTO[]>> {
   try {
     await requireRole("ADMIN");
     const service = createCommentService();

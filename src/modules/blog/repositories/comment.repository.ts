@@ -80,6 +80,19 @@ export function createCommentRepository(db: Db = defaultPrisma) {
       return db.comment.count({ where: { postId, ...COUNTABLE_COMMENT } });
     },
 
+    /**
+     * SSE 增量：晚于 since 的可见评论（含回复与软删占位——占位也要推送，
+     * 否则实时流里的楼层状态会和列表页漂移）。游标是 createdAt（毫秒精度）。
+     */
+    listNewSince(postId: string, since: Date, take: number) {
+      return db.comment.findMany({
+        where: { postId, ...VISIBLE_COMMENT, createdAt: { gt: since } },
+        include: COMMENT_INCLUDE,
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+        take,
+      });
+    },
+
     findById(id: string) {
       return db.comment.findFirst({ where: { id }, include: COMMENT_INCLUDE });
     },

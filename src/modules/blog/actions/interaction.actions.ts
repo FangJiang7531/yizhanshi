@@ -10,12 +10,27 @@ import { createCounterService } from "../services/counter.service";
 import { createCommentService } from "../services/comment.service";
 
 /**
- * 互动控制器（点赞 / 转发 / 分享 / 浏览 / 评论点赞）。
+ * 互动控制器（点赞 / 转发 / 分享 / 浏览 / 评论点赞 / 我的互动状态）。
  *
  * 点赞与转发是**只写自己的关系记录**，因此不需要 revalidate：
  * 详情页是 SSG + ISR，客户端用乐观更新维护计数，服务端渲染的计数按 ISR 周期自然刷新。
  * 若为一次点赞而 revalidatePath 整个详情页，会把 ISR 的收益全部抵消（每次点赞都触发重渲染）。
  */
+
+/** 互动栏挂载时查询"我是否已赞/已转发"（toggle 初态；未登录返回双 false） */
+export async function getMyReactionsAction(
+  raw: unknown,
+): Promise<ActionResult<{ liked: boolean; reposted: boolean }>> {
+  try {
+    const user = await requireNonGuest();
+    const data = recordViewSchema.parse(raw); // 同为 { postId } 单字段，复用 schema
+    const counter = createCounterService();
+    return ok(await counter.getMyReactions(data.postId, user.id));
+  } catch (err) {
+    logger.warn({ module: "blog", err: (err as Error).message }, "getMyReactionsAction");
+    return fail(err);
+  }
+}
 
 export async function toggleLikeAction(raw: unknown): Promise<ActionResult<{ liked: boolean; likeCount: number }>> {
   try {
