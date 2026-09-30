@@ -35,6 +35,18 @@ const envSchema = z.object({
   TOOL_SERVICE_DOCCONVERT_URL: optionalUrl,
   TOOL_SERVICE_TOKEN: optionalText,
   CRON_SECRET: optionalText,
+
+  // ---------- 博客板块（阶段二）----------
+  /** 单张图片上传大小上限（MB） */
+  BLOG_IMAGE_MAX_SIZE_MB: z.coerce.number().int().positive().default(5),
+  /** 单用户图片累计配额（MB） */
+  BLOG_USER_QUOTA_MB: z.coerce.number().int().positive().default(500),
+  /** RSS feed 条数上限 */
+  BLOG_RSS_ITEM_LIMIT: z.coerce.number().int().min(1).max(100).default(20),
+  /** 单用户单文章每分钟评论数上限 */
+  BLOG_COMMENT_RATE_LIMIT: z.coerce.number().int().positive().default(10),
+  /** 新注册用户的冷静期（小时）：期间评论直接进人工审核队列 */
+  BLOG_NEW_USER_COOLDOWN_HOURS: z.coerce.number().int().min(0).default(24),
 });
 
 export type Env = z.infer<typeof envSchema>;

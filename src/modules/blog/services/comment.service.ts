@@ -208,7 +208,7 @@ export function createCommentService(
           await syncPostCommentCount(tx, postId);
         }),
       );
-      return { reviewed: true };
+      return { reviewed: true as const };
     },
 
     /** 供"评论是否存在且可访问"的快速校验（SSE 与互动组件共用） */
