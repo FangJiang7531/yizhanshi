@@ -30,7 +30,10 @@ export async function generateMetadata({ params }: { params: Promise<{ tag: stri
   return {
     title: `#${name} · 标签`,
     description: truncate(`标签「${name}」下的全部公开文章。`, 160),
-    alternates: { canonical: `${env.APP_URL}/blog/tags/${encodeURIComponent(name)}` },
+    alternates: {
+      canonical: `${env.APP_URL}/blog/tags/${encodeURIComponent(name)}`,
+      types: { "application/rss+xml": `${env.APP_URL}/blog/rss.xml` },
+    },
   };
 }
 

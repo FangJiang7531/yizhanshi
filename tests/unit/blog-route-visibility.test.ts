@@ -69,6 +69,14 @@ describe("public-routes 注册表", () => {
     }
   });
 
+  it("爬虫基础设施对无 Cookie 请求放行（M8 冒烟回归：曾 302 到 /login 导致整站 SEO 失效）", () => {
+    expect(isPublicPath("/robots.txt")).toBe(true);
+    expect(isPublicPath("/sitemap.xml")).toBe(true);
+    // 相邻路径不误伤
+    expect(isPublicPath("/robots.txt-x")).toBe(false);
+    expect(isPublicPath("/sitemap")).toBe(false);
+  });
+
   it("常量表非空 —— 防止常量被误删导致防线静默消失", () => {
     expect(__publicBlogRouteTable.exact.length).toBeGreaterThan(0);
     expect(__publicBlogRouteTable.prefixes.length).toBeGreaterThan(0);

@@ -108,11 +108,16 @@ export function serializeComment(
   };
 }
 
-export function serializeSearchHit(post: PostWithRelations, snippetHtml: string | null): SearchHitDTO {
+export function serializeSearchHit(
+  post: PostWithRelations,
+  snippetHtml: string | null,
+  titleHtml: string,
+): SearchHitDTO {
   return {
     id: post.id,
     slug: post.slug,
     title: post.title,
+    titleHtml,
     excerpt: post.excerpt,
     author: toAuthor(post.user),
     publishedAt: post.publishedAt?.toISOString() ?? null,

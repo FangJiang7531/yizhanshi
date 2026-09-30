@@ -33,7 +33,11 @@ import type { MineStatsDTO, PostDetailDTO, PostEditDTO, PostListItemDTO } from "
 function revalidatePublicSurfaces(username: string, ...slugs: (string | null | undefined)[]) {
   revalidatePath("/blog");
   for (const slug of slugs) {
-    if (slug) revalidatePath(`/blog/p/${slug}`);
+    if (slug) {
+      revalidatePath(`/blog/p/${slug}`);
+      // 动态 OG 图（第三级回退）与文章同 slug 语义，一并失效（PRD §5.9）
+      revalidatePath(`/blog/p/${slug}/og`);
+    }
   }
   revalidatePath(`/blog/u/${username}`);
   revalidatePath(`/blog/u/${username}/rss.xml`);

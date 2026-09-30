@@ -58,6 +58,22 @@ export function buildSnippet(text: string, q: string, radius = 40): string | nul
 }
 
 /**
+ * 标题高亮（PRD A-14：命中标题/摘要/正文/标签并高亮）。
+ * 标题短，全部命中词都标；先整体转义再插 `<mark>`，与 buildSnippet 同一安全口径。
+ * `q` 中的正则元字符先转义，避免把用户输入当模式解释。
+ */
+export function highlightTitle(title: string, q: string): string {
+  if (!title || !q) return escapeHtml(title);
+  const escaped = escapeHtml(title);
+  const pattern = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  try {
+    return escaped.replace(new RegExp(pattern, "gi"), (m) => `<mark>${m}</mark>`);
+  } catch {
+    return escaped;
+  }
+}
+
+/**
  * PostgreSQL pg_trgm 适配器。
  * 过滤口径由仓储层保证（PUBLISHED + PUBLIC + PASSED + deletedAt IS NULL），
  * 这里只负责"选字段做摘要 + 拼高亮"，不重复实现可见性判断。
@@ -68,7 +84,13 @@ export class PostgresTrgmSearchProvider implements SearchProvider {
   async search(q: string, opts: { cursor?: string; take: number }): Promise<SearchHitRaw> {
     const { items, nextCursor } = await this.postRepo.searchPublic(q, opts);
     return {
-      items: items.map((post) => serializeSearchHit(post, buildSnippet(post.excerpt || post.contentMd, q))),
+      items: items.map((post) =>
+        serializeSearchHit(
+          post,
+          buildSnippet(post.excerpt || post.contentMd, q),
+          highlightTitle(post.title, q),
+        ),
+      ),
       nextCursor,
     };
   }

@@ -383,6 +383,20 @@ export function createPostRepository(db: Db = defaultPrisma) {
     },
 
     /**
+     * sitemap 全量公开文章（PRD §5.9：仅含 PUBLIC；UNLISTED 不进聚合位）。
+     * 个人博客规模下全量拉取可接受；5000 条是 sitemap 单文件 5 万上限内
+     * 留出充足余量的自我保护上限，超过时应拆分 sitemap index（PRD 风险表 R6）。
+     */
+    async listSitemapPosts(): Promise<{ slug: string; updatedAt: Date }[]> {
+      return db.blogPost.findMany({
+        where: PUBLIC_LISTABLE,
+        select: { slug: true, updatedAt: true },
+        orderBy: [{ publishedAt: "desc" }, { id: "desc" }],
+        take: 5000,
+      });
+    },
+
+    /**
      * 有公开文章的作者用户名（作者主页的预渲染候选集）。
      * 只取有公开文章的人：没有公开文章的作者页没有任何内容可展示。
      */

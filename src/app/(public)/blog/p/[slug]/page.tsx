@@ -11,6 +11,7 @@ import { PostEnhancer } from "@/modules/blog/components/post-enhancer";
 import { AuthorAvatar } from "@/modules/blog/components/post-card";
 import { TagRow } from "@/modules/blog/components/tag-chip";
 import { formatDate, formatReadingTime, isoDateOnly, truncate } from "@/modules/blog/lib/format";
+import { buildBlogPostingJsonLd, buildBreadcrumbJsonLd, resolveOgImageUrl, safeJsonLd, SITE_NAME } from "@/modules/blog/lib/seo";
 import { env } from "@/config/env";
 import type { PostDetailDTO } from "@/modules/blog/types";
 
@@ -74,12 +75,17 @@ export async function generateMetadata({
 
   const url = `${env.APP_URL}/blog/p/${post.slug}`;
   const description = post.seoDesc ?? post.excerpt ?? truncate(post.title, 160);
-  const image = post.ogImage ?? post.coverImage ?? undefined;
+  // OG 图三级回退（PRD §5.9）：ogImage → coverImage → 动态生成路由
+  const image = resolveOgImageUrl(post, env.APP_URL);
 
   return {
     title: `${truncate(post.seoTitle ?? post.title, 60)} · ${post.author.displayName ?? post.author.username}`,
     description,
-    alternates: { canonical: post.canonicalUrl ?? url },
+    alternates: {
+      canonical: post.canonicalUrl ?? url,
+      // RSS 自动发现（PRD §5.8：<head> 注入 <link rel="alternate">）
+      types: { "application/rss+xml": `${env.APP_URL}/blog/rss.xml` },
+    },
     openGraph: {
       type: "article",
       title: post.seoTitle ?? post.title,
@@ -89,9 +95,9 @@ export async function generateMetadata({
       modifiedTime: post.updatedAt,
       authors: [post.author.displayName ?? post.author.username],
       tags: post.tags.map((t) => t.name),
-      images: image ? [image] : undefined,
+      images: [image],
     },
-    twitter: { card: "summary_large_image" },
+    twitter: { card: "summary_large_image", images: [image] },
     // 可见性矩阵（PRD §3.2）：PRIVATE 必须 noindex,nofollow；UNLISTED 不加 noindex
     ...(post.visibility === "PRIVATE"
       ? { robots: { index: false, follow: false } }
@@ -222,6 +228,26 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
         {/* 桌面端右侧悬浮目录 */}
         <TableOfContents items={post.toc} />
       </div>
+
+      {/* 结构化数据（PRD §5.9）：BlogPosting + BreadcrumbList。
+          safeJsonLd 已做 </script> 注入防护；内容不含任何用户态，随 ISR 缓存安全。 */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: safeJsonLd(buildBlogPostingJsonLd({ post, siteUrl: env.APP_URL, siteName: SITE_NAME })),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: safeJsonLd(
+            buildBreadcrumbJsonLd([
+              { name: "博客", url: `${env.APP_URL}/blog` },
+              { name: post.title, url: `${env.APP_URL}/blog/p/${post.slug}` },
+            ]),
+          ),
+        }}
+      />
     </article>
   );
 }

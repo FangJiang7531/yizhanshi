@@ -16,7 +16,25 @@ import { isPublicBlogPath } from "@/modules/blog/lib/route-visibility";
  * `getPrincipal()` / `requireAuth()` / `requireNonGuest()` 完成，
  * 三层防线一层都不少。
  */
-const PUBLIC_PATH_MATCHERS: readonly ((pathname: string) => boolean)[] = [isPublicBlogPath];
+/**
+ * 站点级公共资源（爬虫基础设施）。
+ *
+ * robots.txt / sitemap.xml 的消费者就是搜索引擎爬虫——它们天然不带登录
+ * Cookie。若不在此放行，middleware 会把爬虫重定向到 /login（M8 冒烟实测
+ * 踩中：/robots.txt → 302 /login?next=%2Frobots.txt，整站 SEO 直接失效）。
+ *
+ * 同理适用于将来新增的公开聚合资源（如 /atom.xml、/feed.json）。
+ */
+const PUBLIC_EXACT_SITE_FILES: readonly string[] = ["/robots.txt", "/sitemap.xml"];
+
+function isPublicSiteFile(pathname: string): boolean {
+  return PUBLIC_EXACT_SITE_FILES.includes(pathname);
+}
+
+const PUBLIC_PATH_MATCHERS: readonly ((pathname: string) => boolean)[] = [
+  isPublicBlogPath,
+  isPublicSiteFile,
+];
 
 export function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATH_MATCHERS.some((match) => match(pathname));

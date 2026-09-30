@@ -365,6 +365,16 @@ export function createPostService(
       return names.map((tag) => ({ tag }));
     },
 
+    /** sitemap 数据源（PRD §5.9）：公开文章 + 有公开内容的作者 + 活跃标签 */
+    async listSitemapEntries() {
+      const [posts, authors, tags] = await Promise.all([
+        postRepo.listSitemapPosts(),
+        postRepo.listActiveAuthorUsernames(500),
+        postRepo.listActiveTagNames(500),
+      ]);
+      return { posts, authors, tags };
+    },
+
     /**
      * 按 slug 取文章详情（Gate 3.1）。
      *

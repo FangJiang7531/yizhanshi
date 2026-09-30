@@ -15,7 +15,10 @@ export const revalidate = 3600;
 export const metadata: Metadata = {
   title: "标签 · 博客",
   description: "按标签浏览博客文章。",
-  alternates: { canonical: "/blog/tags" },
+  alternates: {
+    canonical: "/blog/tags",
+    types: { "application/rss+xml": "/blog/rss.xml" },
+  },
 };
 
 export default async function TagIndexPage() {

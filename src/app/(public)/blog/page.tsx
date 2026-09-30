@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Flame, Sparkles, PenLine, Search } from "lucide-react";
+import { Flame, Sparkles, PenLine, Search, Rss } from "lucide-react";
 import { createPostService } from "@/modules/blog/services/post.service";
 import { PostList } from "@/modules/blog/components/post-card";
 import { LoadMorePosts } from "@/modules/blog/components/load-more-posts";
@@ -22,7 +22,11 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "博客 · 发现",
   description: "浏览最新与最热的技术与生活记录，支持标签筛选与全文搜索。",
-  alternates: { canonical: "/blog" },
+  alternates: {
+    canonical: "/blog",
+    // RSS 自动发现（PRD §5.8：<head> 注入 <link rel="alternate">）
+    types: { "application/rss+xml": "/blog/rss.xml" },
+  },
 };
 
 const TAKE = 12;
@@ -63,6 +67,11 @@ export default async function BlogDiscoveryPage({
           <Link href="/blog/tags" className="btn btn-ghost btn-sm">
             全部标签 →
           </Link>
+          {/* 显式订阅入口（PRD §5.8：页面提供订阅按钮）；原生 <a> 便于阅读器/右键复制 */}
+          <a href="/blog/rss.xml" className="btn btn-ghost btn-sm ml-auto" title="订阅全站 RSS" target="_blank" rel="noopener noreferrer">
+            <Rss size={14} aria-hidden />
+            RSS
+          </a>
         </div>
       </section>
 

@@ -129,6 +129,8 @@ export type SearchHitDTO = {
   id: string;
   slug: string;
   title: string;
+  /** 标题（已转义，命中词含 <mark> 高亮；PRD A-14） */
+  titleHtml: string;
   excerpt: string | null;
   author: AuthorDTO;
   publishedAt: string | null;

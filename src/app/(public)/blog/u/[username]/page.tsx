@@ -7,6 +7,7 @@ import { PostList } from "@/modules/blog/components/post-card";
 import { LoadMorePosts } from "@/modules/blog/components/load-more-posts";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { truncate } from "@/modules/blog/lib/format";
+import { buildPersonJsonLd, safeJsonLd } from "@/modules/blog/lib/seo";
 import { env } from "@/config/env";
 
 /**
@@ -46,7 +47,11 @@ export async function generateMetadata({
   return {
     title: `${name} 的文章`,
     description: truncate(`${name} 在个人数字工作台发布的文章列表。`, 160),
-    alternates: { canonical: `${env.APP_URL}/blog/u/${user.username}` },
+    alternates: {
+      canonical: `${env.APP_URL}/blog/u/${user.username}`,
+      // 作者级 RSS 自动发现（PRD §5.8）
+      types: { "application/rss+xml": `${env.APP_URL}/blog/u/${user.username}/rss.xml` },
+    },
     openGraph: { type: "profile", title: `${name} 的文章` },
   };
 }
@@ -78,6 +83,19 @@ export default async function AuthorPage({ params }: { params: Promise<{ usernam
           <LoadMorePosts scope="author" username={username} initialCursor={nextCursor} />
         </>
       )}
+
+      {/* 结构化数据（PRD §5.9）：作者页用 Person；bio 字段本期无数据来源（见 AuthorCard 注），留待扩展 */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: safeJsonLd(
+            buildPersonJsonLd(
+              { username: user.username, displayName: user.displayName, bio: null },
+              env.APP_URL,
+            ),
+          ),
+        }}
+      />
     </div>
   );
 }
