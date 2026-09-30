@@ -5,6 +5,7 @@
 import { PrismaClient } from "@prisma/client";
 import { hashPassword } from "../src/lib/auth/password";
 import { parseDateStrToUtcDate } from "../src/lib/date/timezone";
+import { seedSensitiveWords, seedBlogData } from "./seed/blog.seed";
 
 const prisma = new PrismaClient();
 
@@ -129,8 +130,13 @@ async function main() {
     })),
   });
 
+  console.log("🌱 灌入敏感词库与博客数据（阶段二）…");
+  await seedSensitiveWords(prisma);
+  await seedBlogData(prisma, demo.id, passwordHash);
+
   console.log("✅ 种子数据完成");
   console.log("   演示账号：demo@example.com / Demo1234（或用户名 demo）");
+  console.log("   第二账号：zhang_san@example.com / Demo1234（越权测试用）");
   console.log("   预期统计：阅读 = 当前连续 2 天、最长连续 3 天；喝水 = 最长 1 天");
 }
 

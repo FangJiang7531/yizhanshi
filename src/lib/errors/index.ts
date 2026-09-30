@@ -10,6 +10,9 @@ export type ErrorCode =
   | "NOT_FOUND"
   | "CONFLICT"
   | "RATE_LIMITED"
+  | "CONTENT_REJECTED"
+  | "SLUG_CONFLICT"
+  | "COMMENT_DISABLED"
   | "INTERNAL";
 
 export class AppError extends Error {
@@ -66,6 +69,42 @@ export class RateLimitError extends AppError {
   constructor(message = "操作过于频繁，请稍后再试") {
     super("RATE_LIMITED", message, 429);
     this.name = "RateLimitError";
+  }
+}
+
+// ---------- 博客板块专用错误类型（制作流程 Step 1.4）----------
+
+/** 敏感词命中位置信息（供前端高亮标出） */
+export type ContentHit = { word: string; level: string; field?: string; start: number; end: number };
+
+export class ContentRejectedError extends AppError {
+  readonly hits: ContentHit[];
+  constructor(hits: ContentHit[], message = "内容包含不允许的词汇") {
+    super("CONTENT_REJECTED", message, 422);
+    this.name = "ContentRejectedError";
+    this.hits = hits;
+  }
+}
+
+export class SlugConflictError extends AppError {
+  constructor(message = "该链接标识已被占用") {
+    super("SLUG_CONFLICT", message, 409);
+    this.name = "SlugConflictError";
+  }
+}
+
+export class CommentDisabledError extends AppError {
+  constructor(message = "作者已关闭评论") {
+    super("COMMENT_DISABLED", message, 403);
+    this.name = "CommentDisabledError";
+  }
+}
+
+/** 读他人草稿/私密文章统一 404 语义（不泄露"存在但无权"），与阶段一抗 ID 探测要求一致 */
+export class PostNotAccessibleError extends AppError {
+  constructor(message = "文章不存在") {
+    super("NOT_FOUND", message, 404);
+    this.name = "PostNotAccessibleError";
   }
 }
 

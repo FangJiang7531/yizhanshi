@@ -57,6 +57,7 @@ const eslintConfig = [
       "scripts/**",
       "tests/**",
       "prisma/seed.ts",
+      "prisma/seed/**",
       "*.config.*",
     ],
     rules: {
