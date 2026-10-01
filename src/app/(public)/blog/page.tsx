@@ -100,12 +100,12 @@ export default async function BlogDiscoveryPage({
 
       {items.length === 0 ? (
         <EmptyState
-          kind="generic"
-          title={tab === "hot" ? "还没有热度数据" : "还没有已发布的文章"}
+          kind="blog"
+          title={tab === "hot" ? "还没有热度数据" : "还没有文章，笔都凉了"}
           description={
             tab === "hot"
               ? "点赞与浏览累积后，热门榜会自动出现内容。"
-              : "发布第一篇文章后，它会出现在这里。"
+              : "写下第一篇，让这里热闹起来。"
           }
           action={
             <Link href="/blog/new" className="btn btn-primary btn-sm">

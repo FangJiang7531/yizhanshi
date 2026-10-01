@@ -3,8 +3,8 @@ import { headers } from "next/headers";
 import { getModuleMeta } from "@/config/modules";
 
 /**
- * 板块页头：自动按当前路由取模块品牌色与图标，渲染渐变图标章，
- * 营造「独立小站点」的页码感（PRD §3.3 规则 2）；
+ * 板块页头（无界化重构）：图标章从「重渐变 + 投影」改为「板块色浅底 + 板块色图标」
+ * 的双色轻量风——识别度不依赖装饰重量，而依赖板块专属色；
  * 颜色一律走语义变量 + 模块品牌色，保证多主题下风格统一。
  */
 export async function ModulePageHeader({
@@ -27,21 +27,22 @@ export async function ModulePageHeader({
       <div className="flex min-w-0 items-center gap-3.5">
         {Icon && (
           <span
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[var(--radius)]"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--radius)]"
             style={{
-              background: `linear-gradient(135deg, color-mix(in srgb, ${accent} 88%, #ffffff12), color-mix(in srgb, ${accent} 55%, var(--color-bg-surface)))`,
-              color: "#ffffff",
-              boxShadow: `0 6px 18px color-mix(in srgb, ${accent} 28%, transparent)`,
+              backgroundColor: `color-mix(in srgb, ${accent} 12%, transparent)`,
+              color: accent,
             }}
             aria-hidden
           >
-            <Icon size={22} />
+            <Icon size={21} strokeWidth={1.8} />
           </span>
         )}
         <div className="min-w-0">
-          <h1 className="truncate text-[28px] font-semibold leading-tight">{title}</h1>
+          <h1 className="truncate text-[26px] font-semibold leading-tight tracking-[-0.01em]">
+            {title}
+          </h1>
           {subtitle ? (
-            <p className="mt-0.5 text-sm" style={{ color: "var(--color-text-secondary)" }}>
+            <p className="mt-0.5 text-[13px]" style={{ color: "var(--color-text-secondary)" }}>
               {subtitle}
             </p>
           ) : null}

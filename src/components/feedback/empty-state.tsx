@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 
-/** 空状态：插画（内联 SVG，主题语义色）+ 文案 + 引导按钮（呼吸光晕） */
+/** 空状态：插画（内联 SVG，主题语义色）+ 文案 + 引导按钮（呼吸光晕）
+ *  人格化（优化文档 §4.1 维度⑥）：每个板块有自己的语气与插画 ——
+ *  tasks 中性 / habits 引导 / blog 幽默 / generic 中性。 */
 export function EmptyState({
   title,
   description,
@@ -12,7 +14,7 @@ export function EmptyState({
   description?: string;
   action?: ReactNode;
   compact?: boolean;
-  kind?: "tasks" | "habits" | "generic";
+  kind?: "tasks" | "habits" | "blog" | "generic";
 }) {
   return (
     <div className={`flex flex-col items-center justify-center text-center ${compact ? "py-8" : "py-16"}`}>
@@ -32,7 +34,7 @@ export function EmptyState({
   );
 }
 
-function EmptyIllustration({ kind }: { kind: "tasks" | "habits" | "generic" }) {
+function EmptyIllustration({ kind }: { kind: "tasks" | "habits" | "blog" | "generic" }) {
   const stroke = "var(--color-text-muted)";
   const primary = "var(--color-primary)";
   return (
@@ -57,6 +59,21 @@ function EmptyIllustration({ kind }: { kind: "tasks" | "habits" | "generic" }) {
             strokeLinecap="round"
           />
           <circle cx="88" cy="30" r="6" stroke={primary} strokeWidth="2" />
+        </>
+      )}
+      {kind === "blog" && (
+        <>
+          {/* 一支搁浅的笔 + 空稿纸：幽默型“笔都凉了” */}
+          <rect x="26" y="14" width="68" height="56" rx="8" stroke={stroke} strokeWidth="2" />
+          <path d="M38 30h44M38 42h30" stroke={stroke} strokeWidth="2" strokeLinecap="round" opacity="0.5" />
+          <path
+            d="M86 66l14-14a4.2 4.2 0 0 1 6 6l-14 14-8 2z"
+            stroke={primary}
+            strokeWidth="2"
+            strokeLinejoin="round"
+            fill="none"
+          />
+          <path d="M98 54l4 4" stroke={primary} strokeWidth="2" strokeLinecap="round" />
         </>
       )}
       {kind === "generic" && (

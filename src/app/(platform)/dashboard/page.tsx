@@ -34,10 +34,13 @@ export default async function DashboardPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="relative space-y-8">
+      {/* 识别锚点（优化文档 §4.3）：左上角柔光晕，固定不随滚动 */}
+      <div className="dashboard-aurora" aria-hidden />
+
       {/* 问候区：按用户本地时间与时区展示 */}
-      <header>
-        <h1 className="text-[30px] font-semibold leading-tight">
+      <header className="relative">
+        <h1 className="text-[30px] font-semibold leading-tight tracking-[-0.01em]">
           {data.greeting}，{displayName}
           {isGuest ? <span className="ml-2 text-sm font-normal" style={{ color: "var(--color-text-muted)" }}>（访客模式 · 只读）</span> : null}
         </h1>
@@ -46,12 +49,17 @@ export default async function DashboardPage() {
         </p>
       </header>
 
-      {/* 统计卡片 ×2 */}
-      <div className="grid grid-cols-2 gap-4 lg:max-w-md">
+      {/* 统计卡片 ×2（数字着色：总览的色彩性格） */}
+      <div className="relative grid grid-cols-2 gap-4 lg:max-w-md">
         {stats.map((s) => (
-          <div key={s.label} className="card p-4 transition-transform hover:-translate-y-0.5">
+          <div key={s.label} className="card card-interactive p-4">
             <s.icon size={18} style={{ color: "var(--color-primary)" }} aria-hidden />
-            <p className="mt-2 text-2xl font-semibold tabular-nums">{s.value}</p>
+            <p
+              className="mt-2 text-2xl font-semibold tabular-nums"
+              style={{ color: "var(--color-primary)" }}
+            >
+              {s.value}
+            </p>
             <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
               {s.label}
             </p>
@@ -62,22 +70,30 @@ export default async function DashboardPage() {
       {/* 今日任务 / 今日习惯（可直接勾选、打卡） */}
       <DashboardSections initialTasks={data.todayTasks} habits={data.habits} today={today} isGuest={isGuest} />
 
-      {/* 快捷入口：全部板块（含未开放板块 → 占位页） */}
-      <section aria-label="快捷入口">
-        <h2 className="mb-3 text-sm font-semibold">快捷入口</h2>
+      {/* 快捷入口：全部板块（图标章用板块品牌色浅底，一眼识别“这是哪个板块”） */}
+      <section aria-label="快捷入口" className="relative">
+        <h2
+          className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em]"
+          style={{ color: "var(--color-text-muted)" }}
+        >
+          快捷入口
+        </h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {MODULES.map((m) => (
             <Link
               key={m.key}
               href={m.path}
-              className="card group flex items-center gap-3 p-3.5 transition-transform hover:-translate-y-0.5"
+              className="card card-interactive group flex items-center gap-3 p-3.5"
             >
               <span
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius)]"
-                style={{ backgroundColor: "var(--color-bg-elevated)", color: "var(--color-primary)" }}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius)] transition-transform duration-150 group-hover:scale-105"
+                style={{
+                  backgroundColor: `color-mix(in srgb, ${m.accent} 12%, transparent)`,
+                  color: m.accent,
+                }}
                 aria-hidden
               >
-                <m.icon size={17} />
+                <m.icon size={17} strokeWidth={1.8} />
               </span>
               <span className="min-w-0">
                 <span className="block truncate text-sm font-medium">{m.name}</span>
@@ -90,7 +106,7 @@ export default async function DashboardPage() {
         </div>
       </section>
 
-      {/* 空状态兜底（无任何待办与习惯时的轻量提示，不用大插画） */}
+      {/* 空状态兜底（鼓励型人格：“今天状态不错”的语气） */}
       {data.todayTasks.length === 0 && data.habits.length === 0 && (
         <div className="card flex items-center gap-3 p-4 text-sm" style={{ color: "var(--color-text-muted)" }}>
           <ListChecks size={18} aria-hidden />

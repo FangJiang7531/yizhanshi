@@ -53,3 +53,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 /.next-e2e/
+
+# 构建验证副本（临时）
+/.next-verify/

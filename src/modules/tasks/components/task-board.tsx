@@ -117,6 +117,17 @@ export function TaskBoard({
     setDialogOpen(true);
   }
 
+  // 命令面板「新建任务」跳转（/tasks?create=1）时自动打开新建对话框，随后清理地址栏参数
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("create") === "1") {
+      openCreate();
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function openEdit(t: TaskDTO) {
     if (guardGuest()) return;
     setEditing(t);

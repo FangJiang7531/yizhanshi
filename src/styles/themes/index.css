@@ -22,6 +22,25 @@
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
   --density-pad: 12px;
+
+  /* —— 无界化：以间距替代边框（四档垂直节奏） —— */
+  --space-compact: 8px;
+  --space-normal: 16px;
+  --space-group: 32px;
+  --space-section: 48px;
+
+  /* —— 导航 —— */
+  --nav-width-expanded: 260px;
+  --nav-width-collapsed: 64px;
+  --nav-item-height: 40px;
+
+  /* —— 板块内容宽度（排版节奏差异化） —— */
+  --reading-width: 720px;
+  --standard-width: 1080px;
+  --work-width: 1280px;
+
+  /* —— 内容区呼吸边界（上下渐变遮罩高度） —— */
+  --content-fade-height: 32px;
 }
 
 /* ---------- classic-paper 米黄书页 ---------- */
@@ -477,12 +496,13 @@ body {
 
 .btn-outline {
   background-color: transparent;
-  border-color: var(--color-border);
+  border-color: color-mix(in srgb, var(--color-border) 60%, transparent);
   color: var(--color-text-primary);
 }
 .btn-outline:hover:not(:disabled) {
-  border-color: var(--color-primary);
+  border-color: color-mix(in srgb, var(--color-primary) 55%, transparent);
   color: var(--color-primary);
+  background-color: color-mix(in srgb, var(--color-primary) 7%, transparent);
 }
 
 .btn-ghost {
@@ -534,7 +554,7 @@ body {
   align-items: center;
   gap: 5px;
   border-radius: 9999px;
-  border: 1px solid var(--color-border);
+  border: 1px solid color-mix(in srgb, var(--color-border) 55%, transparent);
   background-color: var(--color-bg-elevated);
   color: var(--color-text-primary);
   font-size: 12px;
@@ -543,47 +563,68 @@ body {
   transition: all var(--duration-fast) var(--ease-out);
 }
 .chip:hover {
-  border-color: var(--color-primary);
+  border-color: color-mix(in srgb, var(--color-primary) 60%, transparent);
+  background-color: color-mix(in srgb, var(--color-primary) 8%, transparent);
 }
 
-/* ---------- 液态玻璃面板 ---------- */
+/* ---------- 液态玻璃面板（无界化：靠背景色差分层，不用实线边框） ---------- */
 .glass-panel {
-  background-color: color-mix(in srgb, var(--color-bg-surface) 72%, transparent);
+  background-color: color-mix(in srgb, var(--color-bg-surface) 78%, transparent);
   backdrop-filter: blur(18px) saturate(1.5);
   -webkit-backdrop-filter: blur(18px) saturate(1.5);
-  border: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
-  /* 内侧高光描边：玻璃的“厚度感”，纯黑主题下替代阴影承担层次 */
-  box-shadow:
-    inset 1px 0 0 color-mix(in srgb, #ffffff 7%, transparent),
-    inset 0 1px 0 color-mix(in srgb, #ffffff 5%, transparent),
-    var(--shadow-sm);
+  border: none;
+  /* 仅保留内侧高光：玻璃的“厚度感”，明暗主题下都不形成矩形框 */
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #ffffff 5%, transparent);
 }
 
 /* ---------- 卡片 / 输入框 ---------- */
+/*
+ * 无界化卡片：去掉实心边框与阴影，以背景色差浮于页面之上。
+ * 仅在三层背景色差过小的主题（pure-white / minimal-light）下，
+ * 保留 ≤10% 不透明度的极浅描边作为兜底——肉眼几乎不可见，但能把卡片从背景中托起。
+ */
 .card {
   background-color: var(--color-bg-surface);
-  border: 1px solid var(--color-border);
+  border: 1px solid color-mix(in srgb, var(--color-border) 26%, transparent);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
+}
+
+/* 可交互卡片：悬停 = 背景提亮 + 轻微上移（无界化规范：不用阴影增强） */
+.card-interactive {
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+.card-interactive:hover {
+  background-color: var(--color-bg-elevated);
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--color-border) 40%, transparent);
 }
 
 .input {
   width: 100%;
-  background-color: var(--color-bg-base);
-  border: 1px solid var(--color-border);
+  background-color: var(--color-bg-surface);
+  border: 1px solid color-mix(in srgb, var(--color-border) 45%, transparent);
   border-radius: var(--radius);
   padding: 9px 12px;
   font-size: 14px;
   color: var(--color-text-primary);
   transition:
+    background-color var(--duration-fast) var(--ease-out),
     border-color var(--duration-fast) var(--ease-out),
     box-shadow var(--duration-fast) var(--ease-out);
 }
 .input::placeholder {
   color: var(--color-text-muted);
 }
+.input:hover:not(:focus) {
+  border-color: color-mix(in srgb, var(--color-border) 80%, transparent);
+}
 .input:focus {
   outline: none;
+  background-color: var(--color-bg-elevated);
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 18%, transparent);
 }
@@ -599,12 +640,33 @@ body {
   animation: slide-in 300ms var(--ease-out);
 }
 
-/* ---------- 骨架屏 ---------- */
+/* ---------- 骨架屏（微光扫过，prefers-reduced-motion 下退化为静态灰块） ---------- */
 .skeleton {
+  position: relative;
+  overflow: hidden;
   background-color: var(--color-bg-elevated);
   border-radius: var(--radius-sm);
-  animation: skeleton-breathe 1.6s ease-in-out infinite;
 }
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    color-mix(in srgb, var(--color-text-primary) 6%, transparent) 50%,
+    transparent 80%
+  );
+  animation: skeleton-shimmer 1.6s linear infinite;
+}
+@keyframes skeleton-shimmer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after { animation: none; opacity: 0; }
+}
+[data-motion="off"] .skeleton::after { animation: none; opacity: 0; }
 
 /* ---------- 内容区过渡（板块切换淡入 + 位移） ---------- */
 @keyframes content-in {
@@ -659,10 +721,6 @@ body {
 @keyframes slide-in {
   from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: translateY(0); }
-}
-@keyframes skeleton-breathe {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.55; }
 }
 @keyframes pulse-glow {
   0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-primary) 35%, transparent); }
@@ -741,6 +799,84 @@ body {
 }
 ::view-transition-new(content-area) {
   animation: content-in var(--duration-base) var(--ease-out);
+}
+
+/* ---------- 链接下划线绘制（从左向右 180ms） ---------- */
+.link-draw {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-size: 0% 1px;
+  background-position: 0 100%;
+  background-repeat: no-repeat;
+  transition: background-size 180ms var(--ease-out);
+  padding-bottom: 1px;
+}
+.link-draw:hover {
+  background-size: 100% 1px;
+}
+
+/* ---------- 内容区呼吸边界：顶部/底部渐变遮罩，内容不被硬切断 ---------- */
+.content-fade-top,
+.content-fade-bottom {
+  position: sticky;
+  left: 0;
+  right: 0;
+  height: var(--content-fade-height);
+  pointer-events: none;
+  z-index: 5;
+}
+.content-fade-top {
+  top: 0;
+  background: linear-gradient(to bottom, var(--color-bg-base), transparent);
+}
+.content-fade-bottom {
+  bottom: 0;
+  background: linear-gradient(to top, var(--color-bg-base), transparent);
+}
+/* 移动端避开底部标签栏（56px + 安全区） */
+@media (max-width: 767px) {
+  .content-fade-bottom {
+    bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* ---------- 总览识别锚点：左上角柔光晕（固定不随滚动） ---------- */
+.dashboard-aurora {
+  position: fixed;
+  top: -80px;
+  left: calc(var(--nav-width-expanded) - 60px);
+  width: 600px;
+  height: 400px;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(
+    ellipse at 30% 30%,
+    color-mix(in srgb, var(--color-primary) 9%, transparent),
+    transparent 70%
+  );
+}
+
+/* ---------- 分组标题 chevron 旋转 ---------- */
+.group-chevron {
+  transition: transform 200ms var(--ease-out);
+}
+.group-chevron[data-open="false"] {
+  transform: rotate(-90deg);
+}
+
+/* ---------- 设置齿轮悬停旋转 ---------- */
+.gear-spin {
+  transition: transform 240ms var(--ease-out);
+}
+.gear-spin:hover {
+  transform: rotate(45deg);
+}
+
+/* ---------- 移动端底部标签栏 ---------- */
+.mobile-tabbar {
+  transition: transform 240ms var(--ease-out);
+}
+.mobile-tabbar[data-hidden="true"] {
+  transform: translateY(100%);
 }
 
 /* ---------- 无障碍：减少动态效果 ---------- */

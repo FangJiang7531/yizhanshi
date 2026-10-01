@@ -15,7 +15,11 @@ const eslintConfig = [
     ignores: [
       "node_modules/**",
       ".next/**",
-      ".next-e2e/**",
+      // NEXT_DIST_DIR 产生的所有构建目录变体（.next-verify / .next-e2e / .next-stale-manual …）
+      // 必须整体忽略，否则 next 生成的 .d.ts 与 trace 文件会把 lint 结果淹没，
+      // 让 `npm run lint` 质量门禁失效（历史缺陷：543 条告警全部来自构建产物）。
+      ".next-*/**",
+      ".next-*",
       "out/**",
       "build/**",
       "next-env.d.ts",
@@ -24,6 +28,7 @@ const eslintConfig = [
       ".storage-test/**",
       "test-results/**",
       "playwright-report/**",
+      "coverage/**",
     ],
   },
   {

@@ -123,6 +123,17 @@ export function HabitBoard({
     setDialogOpen(true);
   }
 
+  // 命令面板「新建习惯」跳转（/habits?create=1）时自动打开新建对话框，随后清理地址栏参数
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("create") === "1") {
+      openCreate();
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function openEdit(h: HabitDTO) {
     if (isGuest) {
       setGuestPrompt(true);

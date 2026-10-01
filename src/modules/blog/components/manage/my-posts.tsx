@@ -287,7 +287,7 @@ export function MyPosts({
     if (tab === "DRAFT") {
       return (
         <EmptyState
-          kind="generic"
+          kind="blog"
           title="没有草稿"
           description="灵感来时随手记，稍后再打磨"
           action={
@@ -299,7 +299,7 @@ export function MyPosts({
         />
       );
     }
-    return <EmptyState kind="generic" compact title="这里还没有内容" description="换个状态页签看看吧" />;
+    return <EmptyState kind="blog" compact title="这里还没有内容" description="换个状态页签看看吧" />;
   }, [loading, searching, debouncedQ, tab]);
 
   return (

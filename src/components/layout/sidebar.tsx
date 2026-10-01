@@ -1,39 +1,83 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { PanelLeftClose, PanelLeftOpen, Sparkles } from "lucide-react";
+import { motion } from "framer-motion";
+import { ChevronDown, PanelLeftClose, PanelLeftOpen, Search } from "lucide-react";
 import {
   MODULES,
   MODULE_GROUP_LABELS,
   type ModuleMeta,
 } from "@/config/modules";
-import { useToast } from "@/components/feedback/toast";
+import type { TopbarUser } from "./topbar";
+import { SidebarUserCard } from "./sidebar-user-card";
 
 const GROUPS: ModuleMeta["group"][] = ["core", "content", "tools"];
+
+/** 分组默认展开状态：核心/内容常驻展开，工具默认收起（优化文档 §3.2） */
+const GROUP_DEFAULT_OPEN: Record<ModuleMeta["group"], boolean> = {
+  core: true,
+  content: true,
+  tools: false,
+};
+
+const GROUP_LS_KEY = "wb_nav_groups";
+
+function readGroupState(): Record<ModuleMeta["group"], boolean> {
+  if (typeof window === "undefined") return GROUP_DEFAULT_OPEN;
+  try {
+    const raw = window.localStorage.getItem(GROUP_LS_KEY);
+    if (!raw) return GROUP_DEFAULT_OPEN;
+    const parsed = JSON.parse(raw) as Partial<Record<ModuleMeta["group"], boolean>>;
+    return { ...GROUP_DEFAULT_OPEN, ...parsed };
+  } catch {
+    return GROUP_DEFAULT_OPEN;
+  }
+}
 
 /**
  * 侧边栏 —— 完全由 src/config/modules.ts 驱动。
  *
- * 关键设计（PRD §3.3 / §9.1）：
- * - 外壳常驻：本组件位于 (platform)/layout.tsx，子路由切换时不重新挂载
- * - 液态玻璃质感：半透明表面 + 背景模糊 + 高光描边（.glass-panel）
- * - 高亮块内嵌于激活项内部（不靠 JS 测量定位），折叠/展开永不漂移
- * - 移动端转为抽屉
+ * 无界化重构（优化文档第三章）：
+ * - 260px 展开 / 64px 折叠轨道，宽度过渡 240ms，文字延迟淡入不挤压
+ * - 分组标题可折叠（chevron 旋转 200ms），状态记忆在 localStorage
+ * - 激活指示条用 framer-motion layoutId 跨条目平滑滑动（220ms 弹性）
+ * - 与内容区之间靠背景色差分层，不使用分割线
+ * - 顶部品牌区 + 命令面板触发入口（⌘K）；底部用户卡
  */
 export function Sidebar({
+  user,
   collapsed,
   onToggleCollapse,
   mobileOpen,
   onCloseMobile,
 }: {
+  user: TopbarUser;
   collapsed: boolean;
   onToggleCollapse: () => void;
   mobileOpen: boolean;
   onCloseMobile: () => void;
 }) {
   const pathname = usePathname();
-  const toast = useToast();
+  const [groupOpen, setGroupOpen] = useState(GROUP_DEFAULT_OPEN);
+
+  // 挂载后读取记忆中的分组折叠状态（避免 SSR/CSR 不一致）
+  useEffect(() => {
+    setGroupOpen(readGroupState());
+  }, []);
+
+  function toggleGroup(group: ModuleMeta["group"]) {
+    setGroupOpen((prev) => {
+      const next = { ...prev, [group]: !prev[group] };
+      try {
+        window.localStorage.setItem(GROUP_LS_KEY, JSON.stringify(next));
+      } catch {
+        /* localStorage 不可用时静默降级 */
+      }
+      return next;
+    });
+  }
 
   const active = MODULES.find((m) => pathname === m.path || pathname.startsWith(`${m.path}/`));
 
@@ -47,144 +91,254 @@ export function Sidebar({
         />
       )}
       <aside
-        className="glass-panel fixed inset-y-0 left-0 z-50 flex flex-col transition-[width,transform] duration-200 md:static md:translate-x-0"
-        style={{ width: collapsed ? 64 : 240, transform: mobileOpen ? "translateX(0)" : undefined }}
+        className="fixed inset-y-0 left-0 z-50 flex flex-col transition-[width,transform] duration-200 md:static md:translate-x-0"
+        style={{
+          width: collapsed ? "var(--nav-width-collapsed)" : "var(--nav-width-expanded)",
+          transform: mobileOpen ? "translateX(0)" : undefined,
+          backgroundColor: "var(--color-bg-surface)",
+          transitionTimingFunction: "var(--ease-out)",
+        }}
         data-mobile-open={mobileOpen}
         aria-label="主导航"
       >
-        {/* 品牌区 */}
-        <div className="flex h-14 shrink-0 items-center gap-2.5 px-4">
-          <div
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-sm font-bold"
-            style={{
-              background: "linear-gradient(135deg, var(--color-primary), var(--color-accent))",
-              color: "var(--color-primary-fg)",
-              boxShadow: "var(--shadow-sm)",
-            }}
-            aria-hidden
+        {/* 品牌区：Logo + 站名 + 折叠按钮（§3.4） */}
+        <div
+          className={`flex h-14 shrink-0 items-center ${collapsed ? "justify-center px-2" : "gap-2.5 px-4"}`}
+        >
+          <Link
+            href="/dashboard"
+            className="flex min-w-0 items-center gap-2.5"
+            aria-label="回到总览"
+            onClick={onCloseMobile}
           >
-            台
-          </div>
+            <span
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-[13px] font-bold"
+              style={{
+                background: "linear-gradient(135deg, var(--color-primary), var(--color-accent))",
+                color: "var(--color-primary-fg)",
+              }}
+              aria-hidden
+            >
+              台
+            </span>
+            <span
+              className="truncate text-sm font-semibold tracking-wide transition-opacity duration-150"
+              style={{
+                opacity: collapsed ? 0 : 1,
+                width: collapsed ? 0 : "auto",
+                overflow: "hidden",
+                whiteSpace: "nowrap",
+                transitionDelay: collapsed ? "0ms" : "60ms",
+              }}
+            >
+              个人数字工作台
+            </span>
+          </Link>
           {!collapsed && (
-            <span className="truncate text-sm font-semibold tracking-wide">个人数字工作台</span>
+            <button
+              type="button"
+              className="icon-btn ml-auto !h-7 !w-7 shrink-0"
+              onClick={onToggleCollapse}
+              aria-label="折叠侧边栏"
+              title="折叠侧边栏"
+            >
+              <PanelLeftClose size={15} />
+            </button>
           )}
         </div>
 
-        {/* 导航区 */}
-        <nav className="flex-1 overflow-y-auto px-2.5 pb-2 pt-1">
-          {GROUPS.map((group) => {
+        {/* 命令面板触发入口：看起来像一个可点击的搜索框（§3.4） */}
+        <div className={`shrink-0 pb-2 ${collapsed ? "px-2" : "px-3"}`}>
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent("wb:open-command-palette"))}
+            aria-label="打开命令面板（Ctrl+K）"
+            className={`flex h-9 w-full items-center rounded-[var(--radius)] transition-colors duration-150 hover:bg-[var(--color-bg-elevated)] ${
+              collapsed ? "justify-center" : "gap-2.5 px-3"
+            }`}
+            style={{ backgroundColor: "var(--color-bg-base)" }}
+          >
+            <Search size={15} className="shrink-0" style={{ color: "var(--color-text-muted)" }} aria-hidden />
+            {!collapsed && (
+              <>
+                <span className="flex-1 truncate text-left text-[13px]" style={{ color: "var(--color-text-muted)" }}>
+                  搜索或跳转…
+                </span>
+                <kbd
+                  className="shrink-0 rounded px-1.5 py-0.5 text-[10px] leading-none"
+                  style={{
+                    backgroundColor: "var(--color-bg-elevated)",
+                    color: "var(--color-text-muted)",
+                    fontFamily: "var(--font-mono)",
+                  }}
+                >
+                  Ctrl K
+                </kbd>
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* 导航区：分组可折叠（§3.3） */}
+        <nav className={`flex-1 overflow-y-auto pb-2 ${collapsed ? "px-2" : "px-3"}`}>
+          {GROUPS.map((group, gi) => {
             const items = MODULES.filter((m) => m.group === group).sort((a, b) => a.order - b.order);
             if (items.length === 0) return null;
+            const open = groupOpen[group];
             return (
-              <div key={group} className="mb-3">
-                {!collapsed && (
-                  <p
-                    className="px-2.5 pb-1 pt-2 text-[11px] font-medium uppercase tracking-[0.12em]"
+              <div key={group} className={gi === 0 ? "" : collapsed ? "mt-3" : "mt-5"}>
+                {/* 折叠轨道：分组之间用 24px 极浅细线分隔（§3.3.4） */}
+                {collapsed ? (
+                  gi > 0 && (
+                    <div
+                      aria-hidden
+                      className="mx-auto mb-3 h-px w-6"
+                      style={{ backgroundColor: "color-mix(in srgb, var(--color-border) 60%, transparent)" }}
+                    />
+                  )
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup(group)}
+                    aria-expanded={open}
+                    className="group flex h-7 w-full items-center gap-1 px-2 text-[11px] font-semibold uppercase tracking-[0.08em] transition-colors duration-150"
                     style={{ color: "var(--color-text-muted)" }}
                   >
-                    {MODULE_GROUP_LABELS[group]}
-                  </p>
+                    <ChevronDown size={12} aria-hidden className="group-chevron" data-open={open} />
+                    <span className="transition-colors duration-150 group-hover:text-[var(--color-text-secondary)]">
+                      {MODULE_GROUP_LABELS[group]}
+                    </span>
+                  </button>
                 )}
-                <ul className="space-y-0.5">
-                  {items.map((m) => {
-                    const isActive = active?.key === m.key;
-                    const Icon = m.icon;
-                    const isReady = m.status === "ready";
-                    return (
-                      <li key={m.key}>
-                        <Link
-                          href={m.path}
-                          data-active={isActive}
-                          onClick={onCloseMobile}
-                          title={collapsed ? m.name : undefined}
-                          aria-current={isActive ? "page" : undefined}
-                          className="group relative flex items-center gap-2.5 overflow-hidden rounded-[var(--radius-sm)] px-2.5 py-2 text-sm transition-all duration-200"
-                          style={{
-                            color: isActive ? "var(--color-text-primary)" : "var(--color-text-secondary)",
-                            fontWeight: isActive ? 600 : 400,
-                            // 高亮块内嵌于激活项，折叠/展开永不漂移（修复指示块卡在两板块中间的问题）
-                            backgroundColor: isActive
-                              ? "color-mix(in srgb, " + m.accent + " 14%, transparent)"
-                              : "transparent",
-                          }}
-                        >
-                          {/* 左侧指示条：激活时以品牌色亮起 */}
-                          <span
-                            aria-hidden
-                            className="absolute inset-y-1.5 left-0 w-[3px] rounded-full transition-all duration-200"
-                            style={{
-                              backgroundColor: isActive ? m.accent : "transparent",
-                              transform: isActive ? "scaleY(1)" : "scaleY(0.2)",
-                            }}
-                          />
-                          {/* 悬停时的品牌色染光 */}
-                          <span
-                            aria-hidden
-                            className="absolute inset-0 -z-10 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
-                            style={{
-                              backgroundColor: "color-mix(in srgb, " + m.accent + " 7%, transparent)",
-                            }}
-                          />
-                          <Icon
-                            size={17}
-                            className="shrink-0 transition-colors"
-                            style={{ color: isActive ? m.accent : undefined }}
-                            aria-hidden
-                          />
-                          {!collapsed && (
-                            <>
-                              <span className="flex-1 truncate">{m.name}</span>
-                              {!isReady && (
-                                <span
-                                  className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] leading-none"
-                                  style={{
-                                    backgroundColor: "var(--color-bg-elevated)",
-                                    color: "var(--color-text-muted)",
-                                    border: "1px solid var(--color-border)",
-                                  }}
-                                >
-                                  即将开放
-                                </span>
-                              )}
-                            </>
-                          )}
-                        </Link>
-                      </li>
-                    );
-                  })}
-                </ul>
+                {/* 分组条目：高度动画折叠（0 ↔ auto），无瞬间跳变 */}
+                <motion.div
+                  initial={false}
+                  animate={{ height: collapsed || open ? "auto" : 0, opacity: collapsed || open ? 1 : 0 }}
+                  transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                  style={{ overflow: "hidden" }}
+                >
+                  <ul className={collapsed ? "space-y-1" : "space-y-0.5 pt-1"}>
+                    {items.map((m) => (
+                      <NavItem
+                        key={m.key}
+                        mod={m}
+                        isActive={active?.key === m.key}
+                        collapsed={collapsed}
+                        onNavigate={onCloseMobile}
+                      />
+                    ))}
+                  </ul>
+                </motion.div>
               </div>
             );
           })}
         </nav>
 
-        {/* 底部：折叠开关 + 反馈入口 */}
-        <div
-          className="shrink-0 border-t p-2.5"
-          style={{ borderColor: "color-mix(in srgb, var(--color-border) 60%, transparent)" }}
-        >
-          {!collapsed && (
+        {/* 底部：折叠按钮（折叠态）+ 用户卡（§3.5） */}
+        <div className={`shrink-0 ${collapsed ? "p-2" : "p-3"}`}>
+          {collapsed && (
             <button
               type="button"
-              className="mb-1 flex w-full items-center gap-2 rounded-[var(--radius-sm)] px-2.5 py-2 text-xs transition-colors hover:bg-[var(--color-bg-elevated)]"
-              style={{ color: "var(--color-text-muted)" }}
-              onClick={() => toast.info("感谢反馈！需求收集入口即将开放")}
+              className="icon-btn mb-2 w-full"
+              onClick={onToggleCollapse}
+              aria-label="展开侧边栏"
+              title="展开侧边栏"
             >
-              <Sparkles size={13} className="shrink-0" aria-hidden />
-              想要什么功能？告诉我们 →
+              <PanelLeftOpen size={17} />
             </button>
           )}
-          <button
-            type="button"
-            className="btn btn-ghost w-full !justify-start !px-2.5"
-            onClick={onToggleCollapse}
-            aria-label={collapsed ? "展开侧边栏" : "折叠侧边栏"}
-          >
-            {collapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}
-            {!collapsed && <span className="text-xs">折叠侧边栏</span>}
-          </button>
+          <SidebarUserCard user={user} collapsed={collapsed} />
         </div>
       </aside>
     </>
+  );
+}
+
+/** 单个导航条目（§3.3.3）：激活指示条用 layoutId 跨条目滑动 */
+function NavItem({
+  mod,
+  isActive,
+  collapsed,
+  onNavigate,
+}: {
+  mod: ModuleMeta;
+  isActive: boolean;
+  collapsed: boolean;
+  onNavigate: () => void;
+}) {
+  const Icon = mod.icon;
+  const isReady = mod.status === "ready";
+
+  return (
+    <li className="group/item relative">
+      <Link
+        href={mod.path}
+        data-active={isActive}
+        onClick={onNavigate}
+        aria-current={isActive ? "page" : undefined}
+        aria-label={collapsed ? mod.name : undefined}
+        className={`relative flex items-center rounded-[var(--radius)] transition-colors duration-150 ${
+          collapsed ? "h-10 justify-center" : "h-10 gap-3 px-3"
+        }`}
+        style={{
+          color: isActive ? mod.accent : "var(--color-text-secondary)",
+          fontWeight: isActive ? 550 : 450,
+          fontSize: 14,
+          backgroundColor: isActive
+            ? `color-mix(in srgb, ${mod.accent} 12%, transparent)`
+            : "transparent",
+        }}
+      >
+        {/* 悬停背景淡入（非激活态） */}
+        {!isActive && (
+          <span
+            aria-hidden
+            className="absolute inset-0 rounded-[var(--radius)] opacity-0 transition-opacity duration-150 group-hover/item:opacity-100"
+            style={{ backgroundColor: "var(--color-bg-elevated)" }}
+          />
+        )}
+        {/* 激活指示条：layoutId 让它在条目间平滑滑动（220ms 弹性） */}
+        {isActive && !collapsed && (
+          <motion.span
+            layoutId="nav-indicator"
+            aria-hidden
+            className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full"
+            style={{ backgroundColor: mod.accent }}
+            transition={{ type: "spring", stiffness: 500, damping: 40 }}
+          />
+        )}
+        <Icon size={20} className="relative shrink-0" aria-hidden />
+        {!collapsed && (
+          <>
+            <span className="relative flex-1 truncate">{mod.name}</span>
+            {!isReady && (
+              <span
+                className="relative shrink-0 text-[10px]"
+                style={{ color: "var(--color-text-muted)" }}
+              >
+                即将开放
+              </span>
+            )}
+          </>
+        )}
+      </Link>
+      {/* 折叠轨道 Tooltip：悬停 300ms 后浮现（CSS transition-delay 实现，无 JS 计时器） */}
+      {collapsed && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute left-[calc(100%+10px)] top-1/2 z-50 -translate-y-1/2 whitespace-nowrap rounded-[var(--radius-sm)] px-2.5 py-1.5 text-xs opacity-0 transition-opacity duration-150 group-hover/item:opacity-100 group-hover/item:delay-300"
+          style={{
+            backgroundColor: "var(--color-bg-elevated)",
+            color: "var(--color-text-primary)",
+            boxShadow: "var(--shadow-md)",
+          }}
+        >
+          <span className="font-medium">{mod.name}</span>
+          <span className="ml-1.5 text-[10px]" style={{ color: "var(--color-text-muted)" }}>
+            {MODULE_GROUP_LABELS[mod.group]}
+          </span>
+        </span>
+      )}
+    </li>
   );
 }

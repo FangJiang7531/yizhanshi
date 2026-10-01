@@ -29,8 +29,11 @@ jobs:
           context: .
           file: docker/Dockerfile
           push: true
+          # 注意：镜像路径为 ghcr.io/<owner>/personal-workbench，与 docker/docker-compose.prod.yml
+          # 的 image 字段严格一致（GHCR_OWNER=<owner>）。切勿写成 ${{ github.repository }}，
+          # 那会得到 <owner>/<repo>/personal-workbench 两级路径，与 compose 拉取地址不符。
           tags: |
-            ghcr.io/${{ github.repository }}/personal-workbench:${{ github.ref_name }}
-            ghcr.io/${{ github.repository }}/personal-workbench:latest
+            ghcr.io/${{ github.repository_owner }}/personal-workbench:${{ github.ref_name }}
+            ghcr.io/${{ github.repository_owner }}/personal-workbench:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max

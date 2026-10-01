@@ -83,7 +83,7 @@ export const MODULES: ModuleMeta[] = [
     name: "博客",
     path: "/blog",
     icon: FileText,
-    status: "planned",
+    status: "ready",
     order: 4,
     group: "content",
     description: "Markdown 编辑、草稿、标签、评论与全文搜索",
@@ -169,9 +169,9 @@ export function getModuleByPath(pathname: string): ModuleMeta | undefined {
   return MODULES.find((m) => pathname.startsWith(m.path));
 }
 
-/** 侧边栏分组顺序 */
+/** 侧边栏分组顺序与标题（优化文档 §3.2：核心 / 内容 / 工具） */
 export const MODULE_GROUP_LABELS: Record<ModuleMeta["group"], string> = {
-  core: "工作台",
+  core: "核心",
   content: "内容",
   tools: "工具",
 };

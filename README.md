@@ -6,9 +6,9 @@
 |---|---|
 | **你想直接使用** | → 看 [一、使用指南](#一使用指南普通用户) |
 | **你想在本地跑起来改代码** | → 看 [二、开发者指南](#二开发者指南) |
-| **你想部署一套完整服务** | → 看 [三、部署指南](#三部署指南完整全栈部署) |
+| **你想部署一套完整服务** | → 看 [三、部署指南](#三部署指南完整全栈部署)（含 [3.0 服务器系统与环境要求](#30-云服务器系统与环境要求)） |
 
-> 架构与策划文档梳理见 [`docs/架构设计说明.md`](./docs/架构设计说明.md)，第一阶段验收结论见 [`docs/test-report-v0.1.0.md`](./docs/test-report-v0.1.0.md)。
+> 架构与策划文档梳理见 [`docs/架构设计说明.md`](./docs/架构设计说明.md)，第一阶段验收结论见 [`docs/test-report-v0.1.0.md`](./docs/test-report-v0.1.0.md)，2026-09-30 全面检测结论见 [`../检测报告-2026-09-30.md`](../检测报告-2026-09-30.md)。
 
 ---
 
@@ -150,7 +150,10 @@ node scripts/e2e-isolated.mjs   # E2E：注册→登录→任务→习惯→总�
 
 - 单测 198 条：博客（Markdown 净化/敏感词/SEO/RSS/schema/图片/路由可见性矩阵/守卫结构断言）+ streak 三口径固定数据集（B-01~B-10）、时区（B-11/B-12）、Zod Schema；
 - 集成 141 条：博客（仓储/服务/计数并发一致性/公开页/图片/评论与搜索）+ 跨用户隔离、越权（读/写/删/挂标签/排序）、软删除、分页、打卡幂等、级联、Argon2id、拖拽排序；
+- 检测期验证 26 条（`tests/verify/`）：XSS 惰性化 13 + 跨用户越权 9 + 部署链路契约 4（详见 [`tests/verify/README.md`](./tests/verify/README.md)）；
 - E2E 7 段：全链路用户旅程（验证码走开发专用捕获端点 `/api/dev/last-code`，仅在 `NODE_ENV=development && E2E_CAPTURE_CODE=1` 时启用）。
+
+> **合计 365 条用例**，全量执行 `npx vitest run` 实测 24 文件 / 365 通过 / 0 失败（约 66 秒）。
 
 ### 2.5 目录结构与扩展纪律
 
@@ -165,9 +168,10 @@ src/
 │  ├─ blog/                 # 博客：actions / services / repositories / components / hooks / lib
 │  └─ _template/            # 新增模块脚手架（复制即用）
 └─ styles/themes/           # 6 主题 × 明暗语义变量表
-tests/{unit,integration,e2e}/
-docker/{Dockerfile,entrypoint.sh,docker-compose.yml}
+tests/{unit,integration,e2e,verify}/   # verify/ 为检测期定向回归用例
+docker/{Dockerfile,entrypoint.sh,docker-compose.yml,docker-compose.prod.yml}
 prisma/{schema.prisma,migrations/,seed.ts}
+.dockerignore              # 构建上下文排除清单（node_modules/.next/.env…）
 ```
 
 四条不可协商的纪律（ESLint/评审强制）：
@@ -190,6 +194,101 @@ prisma/{schema.prisma,migrations/,seed.ts}
 | **A. 云服务器 + 源码构建** | 有云服务器，想最新代码 | 克隆仓库 → `docker compose up -d --build`（见 3.1–3.2，随后做 3.4 HTTPS） |
 | **B. 拉取现成镜像** | 服务器上不想装构建环境 | `docker pull` GHCR 镜像 → `docker-compose.prod.yml` 启动（见 3.2b） |
 | **C. 物理机直装** | 本地电脑/内网服务器，不用 Docker | 装 Node 20 + PostgreSQL → `npm ci && npm run build` → systemd/pm2 常驻（见 3.2c） |
+
+### 3.0 云服务器系统与环境要求
+
+**推荐配置**：`Ubuntu 22.04 LTS / 24.04 LTS`（x86_64）。其余 Linux 发行版同样可用，只是包管理命令不同。
+
+#### 服务器规格
+
+| 规模 | CPU | 内存 | 磁盘 | 说明 |
+|------|-----|------|------|------|
+| 个人自用（推荐起步） | 2 vCPU | 4 GB | 40 GB SSD | 足够源码构建 + 运行；构建瞬时峰值约 2.5 GB 内存 |
+| 小团队（≤ 20 人） | 4 vCPU | 8 GB | 80 GB SSD | 余量充足，构建不会因内存紧张被 OOM Killer 终止 |
+| 仅拉镜像部署（路线 B） | 1 vCPU | 2 GB | 20 GB SSD | 无需构建，内存需求大幅下降 |
+
+> ⚠️ **1C2G 的机器不建议走路线 A（源码构建）**：`next build` + `prisma generate` 内存峰值易触发 OOM Killer，表现为构建中途进程被杀。
+
+#### 软件环境（路线 A / B：Docker 方案）
+
+| 组件 | 版本要求 | 说明 |
+|------|---------|------|
+| 操作系统 | Linux 内核 ≥ 5.15 | Ubuntu 22.04/24.04、Debian 12、AlmaLinux 9 均可 |
+| Docker Engine | ≥ 24.0 | 需支持 BuildKit（`docker buildx`） |
+| Docker Compose | ≥ v2.20（插件版） | 使用 `docker compose`（空格）而非 `docker-compose`（连字符） |
+| PostgreSQL | **无需单独安装** | 由 compose 的 `postgres:16-alpine` 容器提供 |
+| Node.js | **无需单独安装** | 构建与运行都在容器内完成 |
+| 中文字体 | 可选 | 博客 OG 分享图需中文 .ttf，见下方「中文字体」说明 |
+
+**镜像内固定版本**（无需你在服务器上处理）：
+
+- 基础镜像 `node:20-alpine`（Node 20 LTS）
+- 数据库 `postgres:16-alpine`（PostgreSQL 16）
+- 应用以非 root 用户 `nextjs`（uid 1001）运行，监听容器内 `3000` 端口
+
+#### 软件环境（路线 C：物理机直装）
+
+| 组件 | 版本要求 | 安装方式 |
+|------|---------|---------|
+| Node.js | **≥ 20 LTS**（推荐 20.x 或 22.x） | `nvm` / NodeSource 仓库 / 官方安装包 |
+| npm | ≥ 10 | 随 Node 附带 |
+| PostgreSQL | **16 或 17** | `apt install postgresql-16`，或官方仓库 |
+| 构建工具 | build-essential、python3 | Argon2 等原生模块编译需要 |
+| 中文字体 | 可选 | `apt install fonts-wqy-zenhei` |
+
+> **仅当走路线 C 时**才需要在服务器上安装 Node 与 PostgreSQL。路线 A/B 完全容器化。
+
+#### 域名与网络
+
+| 项 | 要求 |
+|----|------|
+| 域名 | 一个已备案/可用的域名，A 记录解析到服务器公网 IP（HTTPS 需要；纯内网用 `IP:3000` 访问可跳过） |
+| 端口放行 | 安全组/防火墙放行 **80** 与 **443**；**不要**对外暴露 `3000` 与 `5432` |
+| 带宽 | 1 Mbps 起（个人使用足够）；有图片上传建议 ≥ 3 Mbps |
+
+#### 中文字体（OG 分享图）
+
+博客的文章分享卡需要中文 `.ttf` 字体，否则中文显示为方框（`□□□`）：
+
+- **路线 A/B（容器）**：镜像基于 Alpine，默认无中文字体。挂载字体并指定路径：
+  ```yaml
+  # docker-compose.yml 的 app 服务追加
+  volumes:
+    - /usr/share/fonts/truetype/wqy/wqy-zenhei.ttf:/app/fonts/cn.ttf:ro
+  environment:
+    OG_FONT_PATH: /app/fonts/cn.ttf
+  ```
+  宿主机字体可用 `apt install fonts-wqy-zenhei` 安装；
+- **路线 C（物理机）**：`apt install fonts-wqy-zenhei` 后通常可被自动探测（`simhei` / `DengB` / `DengR` 探测链）；未命中再用 `OG_FONT_PATH` 指定。
+- **不支持 `.ttc`**（字体集合格式），必须是单个 `.ttf`。
+
+#### 一键环境自检（部署前执行）
+
+```bash
+# 线路 A/B 自检
+docker --version                # 期望 Docker version 24.x 以上
+docker compose version          # 期望 Docker Compose version v2.20 以上
+docker buildx version           # 有输出即支持 BuildKit
+free -h                         # 内存 ≥ 4G（走源码构建时）
+df -h /                         # 可用磁盘 ≥ 20G
+uname -m                        # x86_64（ARM 亦支持，镜像多架构构建）
+
+# 线路 C 自检
+node -v                         # 期望 v20.x / v22.x
+psql --version                  # 期望 16.x 或 17.x
+```
+
+#### 首次部署耗时预期（2C4G）
+
+| 阶段 | 耗时 |
+|------|------|
+| 拉取基础镜像（`node:20-alpine`、`postgres:16-alpine`） | 1–3 分钟（视网络） |
+| `npm ci` 安装依赖 | 2–4 分钟 |
+| `next build` 生产构建 | 2–5 分钟 |
+| `prisma migrate deploy` 建表 | < 10 秒 |
+| **合计** | **约 6–12 分钟** |
+
+> 后续升级因为 Docker 层缓存，通常 1–3 分钟即可完成。
 
 ### 3.1 准备服务器与配置
 
@@ -289,6 +388,118 @@ sudo systemctl enable --now pwb
 
 内网其他电脑浏览器访问 `http://<本机IP>:3000` 即可注册使用；如需域名与 HTTPS，仍按 3.4 配 Nginx 反代到 3000 端口。
 
+### 3.2d 云服务器首次部署：从零到可访问（Ubuntu 22.04/24.04 完整流程）
+
+以路线 A 为例，从一台**全新 Ubuntu 服务器**到站点可访问的完整命令序列（复制即用）：
+
+```bash
+# ============ 步骤 1：安装 Docker（官方脚本，含 compose 插件）============
+curl -fsSL https://get.docker.com | sudo sh
+sudo usermod -aG docker $USER      # 免 sudo 使用 docker；执行后重新登录 SSH 生效
+newgrp docker                      # 当前会话立即生效（或断开重连）
+
+# 校验
+docker --version && docker compose version
+
+# ============ 步骤 2：系统基础配置 ============
+sudo apt update && sudo apt install -y git openssl
+
+# 时区设为东八区（影响日志时间与定时任务）
+sudo timedatectl set-timezone Asia/Shanghai
+
+# ============ 步骤 3：拉取代码 ============
+sudo mkdir -p /opt && sudo chown $USER:$USER /opt
+git clone <你的仓库地址> /opt/personal-workbench
+cd /opt/personal-workbench/docker
+
+# ============ 步骤 4：配置环境变量（务必改这三项）============
+cat > .env <<EOF
+POSTGRES_PASSWORD=$(openssl rand -base64 24 | tr -d '/+=' | head -c 32)
+AUTH_SECRET=$(openssl rand -base64 32)
+APP_URL=http://$(curl -s ifconfig.me)
+EOF
+chmod 600 .env
+cat .env                            # 确认三项都已生成
+
+# ============ 步骤 5：构建并启动 ============
+docker compose up -d --build
+
+# ============ 步骤 6：验证 ============
+sleep 20
+docker compose ps                              # 两个服务都应 running/healthy
+curl -s http://127.0.0.1:3000/api/health       # {"status":"ok"}
+curl -s http://127.0.0.1:3000/api/ready        # {"status":"ok","db":"connected"}
+docker compose logs --tail=40 app              # 应看到 migrate deploy 完成 + server 启动
+```
+
+> **注意**：`docker/.env` 中的 `AUTH_SECRET` 一旦投入使用**不可更换**——更换会导致全部已登录会话与未使用的验证码立即失效。
+
+#### 用 systemd 托管（可选，实现开机自启）
+
+Docker 容器已配 `restart: unless-stopped`，服务器重启后会自动拉起。若希望 `docker compose` 也随系统启动，可加一个单元：
+
+```bash
+sudo tee /etc/systemd/system/pwb.service <<'EOF'
+[Unit]
+Description=Personal Workbench (docker compose)
+Requires=docker.service
+After=docker.service network-online.target
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/personal-workbench/docker
+ExecStart=/usr/bin/docker compose up -d
+ExecStop=/usr/bin/docker compose down
+TimeoutStartSec=0
+[Install]
+WantedBy=multi-user.target
+EOF
+sudo systemctl enable --now pwb
+```
+
+#### 防火墙配置（仅放行必要端口）
+
+```bash
+# ufw（Ubuntu 默认）
+sudo ufw allow 22/tcp        # SSH（先放行，避免把自己锁在外面）
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw enable
+sudo ufw status
+# ⚠️ 不要放行 3000 与 5432：应用与数据库只在容器网络内可达，由 Nginx 对外暴露
+```
+
+> 若使用云厂商（阿里云/腾讯云/华为云等），**还需在控制台安全组中放行 80/443**——`ufw` 只控制系统防火墙，安全组是独立的一层。
+
+#### 全流程验收清单
+
+| # | 检查项 | 命令 | 期望 |
+|---|--------|------|------|
+| 1 | 容器均在运行 | `docker compose ps` | `postgres` 与 `app` 均 `running`/`healthy` |
+| 2 | 应用存活 | `curl -sI localhost:3000/api/health` | `200` |
+| 3 | 数据库连通 | `curl -s localhost:3000/api/ready` | `{"status":"ok","db":"connected"}` |
+| 4 | 迁移已执行 | `docker compose exec postgres psql -U pwb -d personal_workbench -c '\dt'` | 27 张表 |
+| 5 | 外网可访问 | 浏览器打开 `http://<服务器IP>` | 显示登录页 |
+| 6 | 注册流程 | 点「获取验证码」→ 查日志 | `docker compose logs app \| grep 验证码` 有输出 |
+| 7 | HTTPS（如已配） | 浏览器访问 `https://域名` | 证书有效、锁标正常 |
+| 8 | 数据持久化 | `docker compose restart app` 后刷新 | 登录态与数据仍在 |
+
+### 3.2e 云服务器故障排查
+
+| 现象 | 原因 | 处置 |
+|------|------|------|
+| `app` 容器反复重启，日志只有「等待数据库就绪…」 | 数据库未就绪或连接串错误 | `docker compose logs postgres` 看 PG 是否健康；确认 `POSTGRES_PASSWORD` 一致 |
+| 日志报 `Cannot find module 'pg'` | 镜像 runner 阶段缺 `pg` 运行时依赖（历史缺陷，v0.1.0 已修） | 更新到含修复的版本后 `docker compose up -d --build` 重建镜像 |
+| `docker compose up` 报 `manifest unknown` | 路线 B 拉取的镜像 tag 不存在 | 核对 `GHCR_OWNER`、`APP_VERSION`，并确认 GHCR 中该 tag 已发布 |
+| 启动即退出并提示 `AUTH_SECRET` 缺失 | 环境变量未提供 | 检查 `docker/.env` 存在且含 `AUTH_SECRET`（≥ 32 字符）；`chmod 600 .env` |
+| `npm ci` 或 `next build` 被 Killed | 内存不足触发 OOM | 升配到 4 GB，或添加 swap：`sudo fallocate -l 4G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile` |
+| 构建极慢 | 未走 BuildKit 或网络差 | 确认 `docker buildx version` 有输出；国内可配镜像加速器 `/etc/docker/daemon.json` |
+| 域名打不开但 `curl localhost:3000` 正常 | 安全组/防火墙未放行 80 | 同时检查云控制台安全组与 `ufw status` |
+| OG 分享图中文显示方框 | 容器缺中文字体 | 按 [3.0 中文字体](#中文字体og分享图) 挂载字体并设 `OG_FONT_PATH` |
+| 页面能开但样式丢失 | Nginx 未正确转发或静态资源 404 | 检查 Nginx `proxy_pass` 与 `X-Forwarded-Proto`；确认 `.next/static` 在镜像中（重建镜像） |
+| 502 Bad Gateway | 应用未启动或端口不符 | `docker compose ps` 看 app 状态；确认 Nginx 反代到 `127.0.0.1:3000` |
+| 磁盘写满 | 镜像层/日志/备份堆积 | `docker system prune -a`（慎用）、`docker compose logs` 配置轮转、迁移备份目录到对象存储 |
+
 ### 3.3 注册验证码邮件（SMTP 真实投递）
 
 **按环境自动选择适配器**：
@@ -348,13 +559,32 @@ server {
 
 ### 3.5 数据备份与恢复
 
-```bash
-# 每日备份（crontab 示例，每天 03:00；-T 让 pg_dump 可在 cron 中运行）
-0 3 * * * cd /path/to/personal-workbench/docker && docker compose exec -T postgres pg_dump -U pwb personal_workbench | gzip > /var/backups/pwb-$(date +\%F).sql.gz
+数据分为两块，**都要备份**：数据库（`pgdata` 卷）与上传文件（`storage` 卷）。
 
-# 恢复
-gunzip -c /var/backups/pwb-2026-09-27.sql.gz | docker compose exec -T postgres psql -U pwb -d personal_workbench
+```bash
+# ---------- 1) 数据库每日备份 ----------
+sudo mkdir -p /var/backups/pwb
+# crontab -e 添加（每天 03:00；-T 让 pg_dump 可在 cron 中运行）
+0 3 * * * cd /opt/personal-workbench/docker && docker compose exec -T postgres pg_dump -U pwb personal_workbench | gzip > /var/backups/pwb-$(date +\%F).sql.gz
+# 保留最近 30 天
+5 3 * * * find /var/backups/pwb -name '*.sql.gz' -mtime +30 -delete
+
+# ---------- 2) 上传文件备份（博客图片等）----------
+0 4 * * * docker run --rm -v $(basename $(pwd))_storage:/data -v /var/backups/pwb:/backup alpine \
+  tar czf /backup/storage-$(date +\%F).tar.gz -C /data .
+
+# ---------- 恢复 ----------
+# 恢复数据库
+gunzip -c /var/backups/pwb/2026-09-27.sql.gz | docker compose exec -T postgres psql -U pwb -d personal_workbench
+# 恢复上传文件
+docker run --rm -v $(basename $(pwd))_storage:/data -v /var/backups/pwb:/backup alpine \
+  tar xzf /backup/storage-2026-09-27.tar.gz -C /data
+docker compose restart app
 ```
+
+> **异地备份**：服务器磁盘损坏时本地备份同样丢失。建议用 `rclone` / `aws s3 cp` / 云厂商 CLI 每日把 `/var/backups/pwb` 同步到对象存储。
+>
+> **定期演练**：每季度在一台测试机上完整走一遍恢复流程——**没验证过的备份等于没有备份**。
 
 ### 3.6 升级与回滚
 
@@ -374,19 +604,24 @@ docker compose up -d --build
 
 | 变量 | 必填 | 说明 |
 |------|------|------|
-| `DATABASE_URL` | ✅ | PostgreSQL 连接串（compose 内自动组装） |
+| `DATABASE_URL` | ✅ | PostgreSQL 连接串（compose 内自动组装，无需手工填） |
 | `AUTH_SECRET` | ✅ | ≥32 字符随机串；用于会话/验证码 HMAC 签名，泄露=全部会话可伪造 |
 | `APP_URL` | ✅ | 对外访问地址（https://…），影响链接生成与回调 |
 | `POSTGRES_PASSWORD` | ✅ | compose 中 Postgres 容器密码（**务必替换默认值**） |
+| `GHCR_OWNER` / `APP_VERSION` | 路线 B 必填 | GHCR 镜像所有者（小写）与镜像版本 tag |
 | `LOG_LEVEL` |  | debug / info / warn / error（生产建议 info） |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE` |  | 邮件 SMTP（如 smtp.qq.com:465 SSL）；三要素齐备即真实投递，否则验证码打印控制台 |
 | `SMTP_USER` / `SMTP_PASS` |  | SMTP 认证（QQ/Foxmail 用「授权码」而非登录密码），只存 .env 绝不入库 |
 | `MAIL_FROM` |  | 发件人；留空回退 SMTP_USER（QQ/Foxmail 要求发件人=认证账号） |
 | `STORAGE_DRIVER` / `STORAGE_LOCAL_DIR` |  | 存储抽象（local / s3），本期实现本地磁盘适配器（博客图片上传使用） |
 | `OG_FONT_PATH` |  | 可选；博客 OG 分享图的中文字体（.ttf）路径，缺省按 simhei / DengB / DengR 自动探测 |
+| `BLOG_IMAGE_MAX_SIZE_MB` / `BLOG_USER_QUOTA_MB` |  | 单图上限（默认 5MB）/ 单用户配额（默认 500MB） |
+| `BLOG_COMMENT_RATE_LIMIT` / `BLOG_NEW_USER_COOLDOWN_HOURS` |  | 评论限流（默认 10/分钟）/ 新用户冷静期（默认 24 小时进入审核） |
 | `TOOL_SERVICE_*` / `CRON_SECRET` |  | 阶段六工具服务接入与定时端点鉴权 |
 
 所有配置由 `src/config/env.ts` 用 Zod 集中校验，缺失或非法时**启动即退出**（快速失败），不会带病运行。
+
+> `docker/.env` 中的变量会被 `docker-compose.yml` 的 `environment` 段引用；**不要**把 `.env` 提交到仓库（`.gitignore` 与 `.dockerignore` 均已排除）。
 
 ---
 
@@ -394,6 +629,7 @@ docker compose up -d --build
 
 | 问题 | 处置 |
 |------|------|
+| **云服务器部署问题** | 见 [3.2e 云服务器故障排查](#32e-云服务器故障排查) 专表 |
 | Windows 下 `db:up` initdb 失败 | 脚本已自动镜像二进制到 `%USERPROFILE%\.pwb-pg-bin`；若仍失败确认该目录可写 |
 | 端口 5433 / 3000 被占用 | 数据库：`DEV_DB_PORT=5434 npm run db:up` 并同步 `.env`；应用：`npm run dev -- -p 3001` |
 | 集成测试报「测试库不可用」 | 先 `npm run db:up`（自动创建 `personal_workbench_test` 并同步 schema） |
@@ -403,6 +639,7 @@ docker compose up -d --build
 | 登录后跳回登录页 | 检查 `AUTH_SECRET` 是否与发会话时一致（更换后旧会话全部失效） |
 | 博客 OG 分享图中文显示为方框 | 容器/机器缺中文字体：安装 simhei 或通过 `OG_FONT_PATH` 指定任一 .ttf（不支持 .ttc） |
 | 搜索无结果 | 搜索至少输入 2 个字符；确认文章已被管理员审核发布（草稿与待审不进搜索） |
+| `npm run lint` 输出上万条告警 | 已在 v0.1.0 修复（忽略 `.next-*` 构建目录）；若仍出现请确认 `eslint.config.mjs` 含 `.next-*/**` 忽略项 |
 
 ## 许可证
 

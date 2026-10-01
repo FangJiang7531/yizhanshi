@@ -1,0 +1,47 @@
+# ============================================================================
+# Docker 构建上下文排除清单
+# 目的：构建上下文只保留「构建必需」的内容，避免把本机产物与密钥打进镜像。
+#   - node_modules / .next*：由 Dockerfile 内 npm ci、next build 重新生成
+#   - .env：密钥绝不进镜像与层缓存
+#   - .git / .github：不需要历史
+#   - tests / test-results / playwright 报告：运行时不需要
+# ============================================================================
+
+# 依赖与构建产物
+node_modules
+.next
+.next-*
+.next-stale-manual
+out
+build
+dist
+
+# 环境与密钥
+.env
+.env.*
+!.env.example
+
+# 版本控制与 CI
+.git
+.gitignore
+.github
+.mimosa
+
+# 测试与报告（运行镜像不需要）
+tests
+test-results
+playwright-report
+coverage
+*.log
+backups
+
+# 编辑器与系统
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+*.tsbuildinfo
+
+# 文档
+docs
+README.md
