@@ -41,7 +41,7 @@
 
 账号规则：用户名仅英文/数字/下划线（3–20 位，不分大小写）；密码至少 8 位，**包含字母和数字即可**（特殊字符与更长位数只作为强度建议，不作强制）。
 
-> **验证码在哪里看？** 本阶段验证码通过服务端控制台发送（未接真实邮件服务）：本地开发直接打印在 `npm run dev` 的终端里；服务器部署时在容器日志中（见[部署指南 4.3](#43-注册验证码邮件的当前形态)）。
+> **验证码怎么收到？** 验证码通过邮件真实发送（SMTP 配置见[部署指南 3.3](#33-注册验证码邮件smtp-真实投递)）。若服务器未配置 SMTP（三要素留空），验证码降级打印到服务端控制台/容器日志，由管理员转告。
 
 ### 2. 任务清单
 
@@ -289,14 +289,28 @@ sudo systemctl enable --now pwb
 
 内网其他电脑浏览器访问 `http://<本机IP>:3000` 即可注册使用；如需域名与 HTTPS，仍按 3.4 配 Nginx 反代到 3000 端口。
 
-### 3.3 注册验证码邮件的当前形态
+### 3.3 注册验证码邮件（SMTP 真实投递）
 
-**本阶段邮件为控制台适配器**：用户请求验证码后，验证码打印在应用日志中，不发送真实邮件。获取方式：
+**按环境自动选择适配器**：
 
-- Docker：`docker compose logs app | grep "验证码"`（形如：你的注册验证码是：123456）；
-- 物理机：启动应用的终端窗口里直接可见。
+- `.env` 中 `SMTP_HOST` / `SMTP_USER` / `SMTP_PASS` 三要素齐备 → **SmtpMailAdapter**，验证码通过 SMTP 真实发到用户邮箱；
+- 任一缺失（或 E2E 捕获模式 `E2E_CAPTURE_CODE=1`）→ **ConsoleMailAdapter**，验证码打印在应用日志中。
 
-多人使用提示：把站点地址告诉同事/朋友，各自注册账号即可；数据按账号隔离。管理员把日志里的验证码转告给对应用户即可完成首次注册。接入真实邮件（Resend/SMTP）的扩展点已就位：实现 `src/lib/mail/index.ts` 的 `MailAdapter` 接口并替换导出即可，业务代码零改动。
+**QQ/Foxmail 邮箱配置示例**（授权码在邮箱「设置 → 账号 → POP3/SMTP 服务」生成）：
+
+```bash
+# .env
+SMTP_HOST="smtp.qq.com"
+SMTP_PORT="465"          # 465 走 SSL；587 请改为 587 并设置 SMTP_SECURE="false"（STARTTLS）
+SMTP_SECURE="true"
+SMTP_USER="you@example.qq.com"
+SMTP_PASS="你的SMTP授权码"   # 不是邮箱登录密码！
+MAIL_FROM=""             # 留空自动使用 SMTP_USER（QQ 要求发件人=认证账号）
+```
+
+**验证通道**：`node scripts/smtp-verify.mjs` 会用当前 `.env` 配置向发件邮箱自身发一封测试邮件，收到即通道就绪。服务器启动时日志也会打印当前启用的适配器（`[MailAdapter:smtp]` / `[MailAdapter:console]`）。
+
+> 安全纪律：授权码只存 `.env`（已被 `.gitignore` 忽略），绝不提交代码库；`.env.example` 只保留占位值。发送失败会向用户明确报错，绝不静默丢码。
 
 ### 3.4 HTTPS 与反向代理（Nginx）
 
@@ -365,7 +379,9 @@ docker compose up -d --build
 | `APP_URL` | ✅ | 对外访问地址（https://…），影响链接生成与回调 |
 | `POSTGRES_PASSWORD` | ✅ | compose 中 Postgres 容器密码（**务必替换默认值**） |
 | `LOG_LEVEL` |  | debug / info / warn / error（生产建议 info） |
-| `MAIL_FROM` |  | 发件人地址（接真实邮件服务后生效） |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE` |  | 邮件 SMTP（如 smtp.qq.com:465 SSL）；三要素齐备即真实投递，否则验证码打印控制台 |
+| `SMTP_USER` / `SMTP_PASS` |  | SMTP 认证（QQ/Foxmail 用「授权码」而非登录密码），只存 .env 绝不入库 |
+| `MAIL_FROM` |  | 发件人；留空回退 SMTP_USER（QQ/Foxmail 要求发件人=认证账号） |
 | `STORAGE_DRIVER` / `STORAGE_LOCAL_DIR` |  | 存储抽象（local / s3），本期实现本地磁盘适配器（博客图片上传使用） |
 | `OG_FONT_PATH` |  | 可选；博客 OG 分享图的中文字体（.ttf）路径，缺省按 simhei / DengB / DengR 自动探测 |
 | `TOOL_SERVICE_*` / `CRON_SECRET` |  | 阶段六工具服务接入与定时端点鉴权 |
@@ -383,7 +399,7 @@ docker compose up -d --build
 | 集成测试报「测试库不可用」 | 先 `npm run db:up`（自动创建 `personal_workbench_test` 并同步 schema） |
 | 主题切换没有扩散动画 | 浏览器不支持 View Transitions 或系统开启「减少动态效果」，自动降级为瞬时切换 |
 | 登录提示「邮箱/用户名或密码错误」 | 有意统一文案（防账号枚举），请核对凭据 |
-| 收不到验证码 | 本阶段验证码走服务端控制台/容器日志（见 3.3），后续阶段接入真实邮件服务 |
+| 收不到验证码 | ① 检查垃圾邮件箱；② 确认服务器已配置 SMTP 三要素（见 3.3，可用 `node scripts/smtp-verify.mjs` 验证通道）；③ 未配置时验证码降级打印在服务端日志 |
 | 登录后跳回登录页 | 检查 `AUTH_SECRET` 是否与发会话时一致（更换后旧会话全部失效） |
 | 博客 OG 分享图中文显示为方框 | 容器/机器缺中文字体：安装 simhei 或通过 `OG_FONT_PATH` 指定任一 .ttf（不支持 .ttc） |
 | 搜索无结果 | 搜索至少输入 2 个字符；确认文章已被管理员审核发布（草稿与待审不进搜索） |

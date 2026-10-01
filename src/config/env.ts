@@ -28,7 +28,16 @@ const envSchema = z.object({
   APP_URL: z.string().url().default("http://localhost:3000"),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
-  MAIL_FROM: z.preprocess(emptyToUndefined, z.string().email().default("no-reply@workbench.local")),
+  // ---------- 邮件 ----------
+  // SMTP 三要素（HOST/USER/PASS）齐备时验证码走真实邮件，否则打印控制台（ConsoleMailAdapter）
+  SMTP_HOST: optionalText,
+  SMTP_PORT: z.preprocess(emptyToUndefined, z.coerce.number().int().positive().default(465)),
+  SMTP_USER: optionalText,
+  SMTP_PASS: optionalText,
+  /** 465 端口用 SSL（true）；587 用 STARTTLS（false）。默认 true */
+  SMTP_SECURE: z.preprocess(emptyToUndefined, z.enum(["true", "false"]).default("true")),
+  /** 发件人；未配置时回退为 SMTP_USER（QQ/Foxmail SMTP 要求 From 与认证账号一致） */
+  MAIL_FROM: z.preprocess(emptyToUndefined, z.string().email().optional()),
   STORAGE_DRIVER: z.enum(["local", "s3"]).default("local"),
   STORAGE_LOCAL_DIR: z.string().default("./.storage"),
   TOOL_SERVICE_DOWNLOADER_URL: optionalUrl,
