@@ -12,6 +12,11 @@ const nextConfig: NextConfig = {
   // 串行生成以秒级的构建时长换取确定性通过（60 页 ≈ +40s，可接受）。
   experimental: {
     cpus: 1,
+    // Server Actions 默认请求体上限仅 1MB，博客封面/正文插图最大 5MB（BLOG_IMAGE_MAX_SIZE_MB），
+    // 不提升会导致图片在进入 Action 之前就被框架拒绝（且不产生应用日志）。
+    serverActions: {
+      bodySizeLimit: "10mb",
+    },
   },
   // 安全响应头（Nginx 之外的第二道；开发环境同样生效便于自测）
   async headers() {

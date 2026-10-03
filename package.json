@@ -59,8 +59,10 @@
     "unified": "^11.0.5",
     "zod": "^4.6.5"
   },
+  "optionalDependencies": {
+    "@embedded-postgres/windows-x64": "^17.10.0-beta.17"
+  },
   "devDependencies": {
-    "@embedded-postgres/windows-x64": "^17.10.0-beta.17",
     "@eslint/eslintrc": "^3",
     "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",

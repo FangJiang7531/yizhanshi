@@ -56,3 +56,6 @@ next-env.d.ts
 
 # 构建验证副本（临时）
 /.next-verify/
+
+# ACME 证书验证目录（宝塔 / acme.sh 运行时写入，不入库）
+/.well-known/
