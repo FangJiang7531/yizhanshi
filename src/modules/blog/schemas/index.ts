@@ -18,8 +18,12 @@ export const postVisibilitySchema = z.enum(["PUBLIC", "UNLISTED", "PRIVATE"]);
 
 const tagNameSchema = z.string().trim().min(1, "标签名不能为空").max(30, "标签最多 30 字");
 
-/** 可选的 URL/路径字符串：允许空串（前端表单默认值） */
-const optionalUrl = z.string().trim().max(500).optional().or(z.literal(""));
+/**
+ * 可选的 URL/路径字符串：允许空串与 null。
+ * - 空串：前端表单默认值；
+ * - null：数据库该字段可空（`String?`），编辑器从库中读到的就是 null，保存时原样回传。
+ */
+const optionalUrl = z.string().trim().max(500).nullish().or(z.literal(""));
 
 /**
  * 草稿保存（自动保存 / 手动保存共用）。
