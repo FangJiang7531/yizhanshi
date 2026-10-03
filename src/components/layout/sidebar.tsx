@@ -91,10 +91,14 @@ export function Sidebar({
         />
       )}
       <aside
-        className="fixed inset-y-0 left-0 z-50 flex flex-col transition-[width,transform] duration-200 md:static md:translate-x-0"
+        className="fixed inset-y-0 left-0 z-50 flex flex-col -translate-x-full transition-[width,translate] duration-200 md:static md:translate-x-0"
         style={{
           width: collapsed ? "var(--nav-width-collapsed)" : "var(--nav-width-expanded)",
-          transform: mobileOpen ? "translateX(0)" : undefined,
+          // 移动端抽屉开合。注意 Tailwind v4 的 -translate-x-full / md:translate-x-0
+          // 编译为 CSS `translate` 属性（而非 transform），内联必须用同一属性才能正确覆盖：
+          // 打开态内联 translate:0 覆盖类的 -100%；关闭态置 undefined 让类生效（滑出屏幕）；
+          // 桌面端由 md:translate-x-0 覆盖，恢复 static 文档流布局。
+          translate: mobileOpen ? "0" : undefined,
           backgroundColor: "var(--color-bg-surface)",
           transitionTimingFunction: "var(--ease-out)",
         }}
