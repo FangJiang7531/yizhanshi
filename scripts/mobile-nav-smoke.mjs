@@ -30,7 +30,6 @@ try {
   await page.waitForSelector("aside[aria-label='主导航']", { timeout: 30000 });
   await page.waitForTimeout(800);
 
-  const vw = 375;
   const asideBox = await page.locator("aside[aria-label='主导航']").evaluate((el) => {
     const r = el.getBoundingClientRect();
     return { left: r.left, right: r.right, width: r.width };
