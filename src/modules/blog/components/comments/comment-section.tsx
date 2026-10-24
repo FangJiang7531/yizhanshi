@@ -11,6 +11,7 @@ import {
 import { toggleCommentLikeAction } from "../../actions/interaction.actions";
 import { useCommentStream } from "../../hooks/use-comment-stream";
 import { AuthorAvatar } from "../post-card";
+import { UserAvatarMenu } from "@/modules/notification/components/user-avatar-menu";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/feedback/toast";
 import { formatDateTime } from "../../lib/format";
@@ -22,10 +23,35 @@ import type { CommentDTO } from "../../types";
  *
  * 架构约束（Gate 5.2）：详情页是 ISR 缓存，评论区整体客户端加载——
  * 服务端输出不含任何评论/身份内容，挂载后经 Action 拉取。
+ *
+ * 通知跳转锚点（#comment-xxx）：加载完成后滚动到对应评论并高亮 1 秒。
  */
 
 const MAX_LEN = 2000;
 const MIN_LEN = 1;
+
+/** 通知/跳转锚点高亮：加载后定位 + 1 秒渐隐 */
+function useAnchorHighlight(loaded: boolean) {
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!loaded) return;
+    const hash = window.location.hash;
+    const m = hash.match(/^#comment-(.+)$/);
+    if (!m) return;
+    const id = m[1]!;
+    // 等列表渲染完成再定位
+    const t = window.setTimeout(() => {
+      const el = document.getElementById(`comment-${id}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        setHighlightId(id);
+        window.setTimeout(() => setHighlightId(null), 1000);
+      }
+    }, 300);
+    return () => window.clearTimeout(t);
+  }, [loaded]);
+  return highlightId;
+}
 
 /** 轻量 Markdown：加粗/斜体/行内代码/链接（PRD §5.6 编辑器规格） */
 type Tool = "bold" | "italic" | "code" | "link";
@@ -58,6 +84,7 @@ export function CommentSection({
   const [enteringId, setEnteringId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [loggedIn, setLoggedIn] = useState(false);
+  const highlightId = useAnchorHighlight(!loading);
 
   const listRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -321,6 +348,7 @@ export function CommentSection({
               key={c.id}
               comment={c}
               entering={enteringId === c.id}
+              highlighted={highlightId === c.id}
               onReply={() => setReplyTo(c)}
               onLike={() => void like(c.id)}
               onDelete={() => setConfirmDelete(c.id)}
@@ -362,20 +390,41 @@ function replyToList(prev: CommentDTO[], created: CommentDTO, parentId: string |
 function CommentItem({
   comment,
   entering,
+  highlighted,
   onReply,
   onLike,
   onDelete,
 }: {
   comment: CommentDTO;
   entering: boolean;
+  highlighted: boolean;
   onReply: () => void;
   onLike: () => void;
   onDelete: () => void;
 }) {
   return (
-    <article id={`comment-${comment.id}`} className={`border-b py-4 last:border-b-0 ${entering ? "comment-enter" : ""}`} style={{ borderColor: "var(--color-border)" }}>
+    <article
+      id={`comment-${comment.id}`}
+      className={`border-b py-4 last:border-b-0 ${entering ? "comment-enter" : ""}`}
+      style={{
+        borderColor: "var(--color-border)",
+        ...(highlighted
+          ? {
+              backgroundColor: "color-mix(in srgb, var(--color-primary) 12%, transparent)",
+              transition: "background-color 400ms var(--ease-out)",
+              borderRadius: "var(--radius)",
+            }
+          : {}),
+      }}
+    >
       <div className="flex items-start gap-3">
-        <AuthorAvatar author={comment.author} size={32} />
+        <UserAvatarMenu
+          username={comment.author.username}
+          displayName={comment.author.displayName ?? comment.author.username}
+          avatarUrl={comment.author.avatarUrl}
+        >
+          <AuthorAvatar author={comment.author} size={32} />
+        </UserAvatarMenu>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-baseline gap-2">
             <span className="text-[13px] font-medium">{comment.author.displayName ?? comment.author.username}</span>
@@ -421,7 +470,7 @@ function CommentItem({
           {comment.replies.length > 0 && (
             <div className="mt-3 space-y-3 border-l-2 pl-3" style={{ borderColor: "var(--color-border)" }}>
               {comment.replies.map((r) => (
-                <CommentItem key={r.id} comment={r} entering={false} onReply={onReply} onLike={onLike} onDelete={onDelete} />
+                <CommentItem key={r.id} comment={r} entering={false} highlighted={highlighted} onReply={onReply} onLike={onLike} onDelete={onDelete} />
               ))}
             </div>
           )}

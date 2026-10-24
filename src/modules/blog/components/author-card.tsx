@@ -1,15 +1,14 @@
+"use client";
+
 import Link from "next/link";
 import { Rss } from "lucide-react";
+import { UserAvatarMenu } from "@/modules/notification/components/user-avatar-menu";
 import { formatCount } from "../lib/format";
 import type { AuthorDTO } from "../types";
 
 /**
  * 作者信息卡（PRD §5.4 / Gate 5.4）。
- *
- * 关于"简介"：PRD §5.4 的作者卡列出了简介，但 §4.1 的数据模型变更清单中
- * User 只新增了反向关系、**没有 `bio` 字段**——即简介在本期没有数据来源。
- * 以数据模型清单为准（PRD 内部冲突时以可落地的模型定义为准），作者卡暂不展示简介；
- * 若后续要加，应作为独立需求扩展 User 模型并同步资料页编辑入口。
+ * 头像可点击：弹出菜单（查看资料 / 关注 / 私聊 / 举报），与评论区头像行为一致。
  */
 export function AuthorCard({
   author,
@@ -27,30 +26,37 @@ export function AuthorCard({
       style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-bg-surface)" }}
       aria-label="作者信息"
     >
-      {author.avatarUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element -- 头像走本地 API 路由，next/image 需额外域名配置
-        <img
-          src={author.avatarUrl}
-          alt=""
-          width={56}
-          height={56}
-          className="shrink-0 rounded-full object-cover"
-          style={{ width: 56, height: 56 }}
-        />
-      ) : (
-        <span
-          aria-hidden
-          className="flex shrink-0 items-center justify-center rounded-full text-xl font-bold"
-          style={{
-            width: 56,
-            height: 56,
-            background: "linear-gradient(135deg, var(--color-primary), var(--color-accent))",
-            color: "var(--color-primary-fg)",
-          }}
-        >
-          {name.slice(0, 1).toUpperCase()}
-        </span>
-      )}
+      <UserAvatarMenu
+        username={author.username}
+        displayName={name}
+        avatarUrl={author.avatarUrl}
+        isMe={isOwner}
+      >
+        {author.avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- 头像走本地 API 路由，next/image 需额外域名配置
+          <img
+            src={author.avatarUrl}
+            alt=""
+            width={56}
+            height={56}
+            className="shrink-0 rounded-full object-cover"
+            style={{ width: 56, height: 56 }}
+          />
+        ) : (
+          <span
+            aria-hidden
+            className="flex shrink-0 items-center justify-center rounded-full text-xl font-bold"
+            style={{
+              width: 56,
+              height: 56,
+              background: "linear-gradient(135deg, var(--color-primary), var(--color-accent))",
+              color: "var(--color-primary-fg)",
+            }}
+          >
+            {name.slice(0, 1).toUpperCase()}
+          </span>
+        )}
+      </UserAvatarMenu>
 
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">

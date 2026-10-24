@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { requireNonGuest } from "@/lib/auth/guards";
 import { getPrincipal, hashIp } from "@/lib/auth/session";
+import { prisma } from "@/lib/db";
 import { fail, ok, type ActionResult } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { recordViewSchema, repostSchema, shareSchema, toggleCommentLikeSchema, toggleLikeSchema } from "../schemas";
@@ -37,7 +38,32 @@ export async function toggleLikeAction(raw: unknown): Promise<ActionResult<{ lik
     const user = await requireNonGuest();
     const data = toggleLikeSchema.parse(raw);
     const counter = createCounterService();
-    return ok(await counter.toggleLike(data.postId, user.id));
+    const result = await counter.toggleLike(data.postId, user.id);
+
+    // 点赞通知（尽力而为）：只在新点赞时通知，取消不通知
+    if (result.liked) {
+      try {
+        const post = await prisma.blogPost.findUnique({
+          where: { id: data.postId },
+          select: { slug: true, title: true, userId: true },
+        });
+        if (post) {
+          const { createNotificationService } = await import("@/modules/notification/services/notification.service");
+          const notifier = createNotificationService();
+          await notifier.notifyPostLiked({
+            postAuthorId: post.userId,
+            actorId: user.id,
+            actorName: user.displayName ?? user.username,
+            postSlug: post.slug,
+            postTitle: post.title,
+          });
+        }
+      } catch (notifyErr) {
+        logger.warn({ module: "blog", err: (notifyErr as Error).message }, "点赞通知失败（不阻断）");
+      }
+    }
+
+    return ok(result);
   } catch (err) {
     logger.warn({ module: "blog", err: (err as Error).message }, "toggleLikeAction");
     return fail(err);

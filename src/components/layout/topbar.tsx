@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, Search } from "lucide-react";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
-import { useToast } from "@/components/feedback/toast";
+import { NotificationBell } from "@/modules/notification/components/notification-bell";
 import { MODULES } from "@/config/modules";
 
 export type TopbarUser = {
@@ -22,14 +22,13 @@ export type TopbarUser = {
  * 视觉上更轻，与内容区的边界仅靠背景色差与滚动时的毛玻璃分层。
  */
 export function Topbar({
+  user,
   onOpenMobileNav,
 }: {
-  /** 保留在签名中：用户菜单虽下沉到侧边栏，外壳仍统一传入身份信息 */
+  /** 通知角标需要身份（访客不轮询） */
   user: TopbarUser;
   onOpenMobileNav: () => void;
 }) {
-  const toast = useToast();
-
   return (
     <header
       className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 px-3 sm:px-4"
@@ -61,23 +60,11 @@ export function Topbar({
           <Search size={17} />
         </button>
         <ThemeToggle />
-        <button
-          type="button"
-          className="icon-btn"
-          aria-label="通知"
-          title="通知（开发中）"
-          onClick={() => toast.info("通知中心开发中")}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-            <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-          </svg>
-        </button>
+        <NotificationBell isGuest={user.isGuest} />
       </div>
     </header>
   );
 }
-
 /** 头像：有图显示图片，否则回退到首字母圆形章（侧边栏用户卡复用） */
 export function UserAvatarView({
   displayName,

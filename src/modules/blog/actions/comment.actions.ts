@@ -55,8 +55,44 @@ export async function createCommentAction(raw: unknown): Promise<ActionResult<Co
     const comment = await service.create(user.id, data, { isAdmin: user.role === "ADMIN" });
 
     // 评论是详情页的一部分，需要失效对应 slug 的缓存
-    const post = await prisma.blogPost.findUnique({ where: { id: data.postId }, select: { slug: true } });
+    const post = await prisma.blogPost.findUnique({
+      where: { id: data.postId },
+      select: { slug: true, userId: true },
+    });
     if (post) revalidatePath(`/blog/p/${post.slug}`);
+
+    // 站内通知（尽力而为，不阻断评论本身）：
+    // ① 顶层评论 → 通知文章作者；② 回复 → 同时通知被回复者
+    const { createNotificationService } = await import("@/modules/notification/services/notification.service");
+    const notifier = createNotificationService();
+    const actorName = user.displayName ?? user.username;
+    const excerpt = comment.content.slice(0, 60);
+    if (post) {
+      if (comment.parentId) {
+        const parent = await prisma.comment.findUnique({
+          where: { id: comment.parentId },
+          select: { userId: true },
+        });
+        if (parent) {
+          await notifier.notifyCommentReplied({
+            parentAuthorId: parent.userId,
+            actorId: user.id,
+            actorName,
+            postSlug: post.slug,
+            commentId: comment.id,
+            excerpt,
+          });
+        }
+      }
+      await notifier.notifyPostCommented({
+        postAuthorId: post.userId,
+        actorId: user.id,
+        actorName,
+        postSlug: post.slug,
+        commentId: comment.id,
+        excerpt,
+      });
+    }
 
     return ok(comment);
   } catch (err) {
