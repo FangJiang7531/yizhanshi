@@ -9,6 +9,7 @@ import {
   type OAuthProvider,
 } from "@/lib/auth/oauth-service";
 import { SESSION_COOKIE } from "@/lib/auth/session";
+import { env } from "@/config/env";
 import { logger } from "@/lib/logger";
 
 /**
@@ -19,15 +20,15 @@ import { logger } from "@/lib/logger";
 
 const PROVIDERS: OAuthProvider[] = ["github", "google"];
 
-function fail(request: NextRequest, code: string): NextResponse {
-  return NextResponse.redirect(new URL(`/login?oauth=${code}`, request.url));
+function fail(code: string): NextResponse {
+  return NextResponse.redirect(new URL(`/login?oauth=${code}`, env.APP_URL));
 }
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ provider: string }> }) {
   const { provider } = await params;
-  if (!PROVIDERS.includes(provider as OAuthProvider)) return fail(request, "unknown");
+  if (!PROVIDERS.includes(provider as OAuthProvider)) return fail("unknown");
   const p = provider as OAuthProvider;
-  if (!isProviderConfigured(p)) return fail(request, "unconfigured");
+  if (!isProviderConfigured(p)) return fail("unconfigured");
 
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
@@ -36,15 +37,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   if (oauthError) {
     logger.warn({ module: "oauth", provider: p, error: oauthError }, "授权被拒绝或失败");
-    return fail(request, "denied");
+    return fail("denied");
   }
-  if (!code) return fail(request, "missing_code");
+  if (!code) return fail("missing_code");
 
   const cookieStore = await cookies();
   const stateCookie = cookieStore.get(OAUTH_STATE_COOKIE)?.value;
   if (!verifyState(state, stateCookie)) {
     logger.warn({ module: "oauth", provider: p }, "state 校验失败（CSRF 或过期）");
-    return fail(request, "state");
+    return fail("state");
   }
 
   try {
@@ -52,10 +53,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const result = await loginWithProfile(profile);
     if (!result.ok) {
       logger.warn({ module: "oauth", provider: p, reason: result.reason }, "OAuth 登录未完成");
-      return fail(request, "login");
+      return fail("login");
     }
 
-    const response = NextResponse.redirect(new URL(result.isNew ? "/dashboard?welcome=oauth" : "/dashboard", request.url));
+    const response = NextResponse.redirect(
+      new URL(result.isNew ? "/dashboard?welcome=oauth" : "/dashboard", env.APP_URL),
+    );
     response.cookies.set(SESSION_COOKIE, result.sessionToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
@@ -68,6 +71,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return response;
   } catch (err) {
     logger.error({ module: "oauth", provider: p, err: (err as Error).message }, "OAuth 回调处理失败");
-    return fail(request, "error");
+    return fail("error");
   }
 }

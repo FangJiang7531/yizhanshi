@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createShortLinkService } from "@/modules/links/services/link.service";
+import { env } from "@/config/env";
 import { logger } from "@/lib/logger";
 
 /**
@@ -13,7 +14,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const row = await service.resolve(slug).catch(() => null);
   if (!row) {
-    return NextResponse.redirect(new URL("/links/gone", request.url));
+    return NextResponse.redirect(new URL("/links/gone", env.APP_URL));
   }
 
   try {
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const { storage } = await import("@/lib/storage");
     const data = await storage.get(row.fileKey).catch(() => null);
     if (!data) {
-      return NextResponse.redirect(new URL("/links/gone", request.url));
+      return NextResponse.redirect(new URL("/links/gone", env.APP_URL));
     }
     return new NextResponse(new Uint8Array(data), {
       headers: {
@@ -48,5 +49,5 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     });
   }
 
-  return NextResponse.redirect(new URL("/links/gone", request.url));
+  return NextResponse.redirect(new URL("/links/gone", env.APP_URL));
 }

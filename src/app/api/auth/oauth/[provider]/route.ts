@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { buildAuthorizeUrl, createState, isProviderConfigured, OAUTH_STATE_COOKIE, type OAuthProvider } from "@/lib/auth/oauth-service";
+import { env } from "@/config/env";
 
 /**
  * OAuth 授权入口：GET /api/auth/oauth/github | /api/auth/oauth/google
@@ -8,14 +9,14 @@ import { buildAuthorizeUrl, createState, isProviderConfigured, OAUTH_STATE_COOKI
 
 const PROVIDERS: OAuthProvider[] = ["github", "google"];
 
-export async function GET(request: NextRequest, { params }: { params: Promise<{ provider: string }> }) {
+export async function GET(_request: NextRequest, { params }: { params: Promise<{ provider: string }> }) {
   const { provider } = await params;
   if (!PROVIDERS.includes(provider as OAuthProvider)) {
-    return NextResponse.redirect(new URL("/login?oauth=unknown", request.url));
+    return NextResponse.redirect(new URL("/login?oauth=unknown", env.APP_URL));
   }
   const p = provider as OAuthProvider;
   if (!isProviderConfigured(p)) {
-    return NextResponse.redirect(new URL("/login?oauth=unconfigured", request.url));
+    return NextResponse.redirect(new URL("/login?oauth=unconfigured", env.APP_URL));
   }
 
   const { state, cookieValue } = createState();
