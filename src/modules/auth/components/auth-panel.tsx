@@ -460,7 +460,6 @@ function ThirdPartySection({
 /* ------------------------------ 访客入口 ------------------------------ */
 
 function GuestEntry({ toast }: { toast: ReturnType<typeof useToast> }) {
-  const router = useRouter();
   const [pending, setPending] = useState(false);
 
   async function enter() {
@@ -469,9 +468,9 @@ function GuestEntry({ toast }: { toast: ReturnType<typeof useToast> }) {
     const { enterGuestAction } = await import("../actions/auth-actions");
     const res = await enterGuestAction();
     if (res.success) {
-      toast.info("已进入访客模式，可自由浏览");
-      router.push("/dashboard");
-      router.refresh();
+      // 硬导航：action 内的 revalidatePath 会刷新路由树，紧接的 router.push
+      // 可能被吞（实测 Playwright 稳定复现）。访客进入本就是场景切换，整页加载更稳。
+      window.location.assign("/dashboard");
     } else {
       toast.error(res.error.message);
       setPending(false);

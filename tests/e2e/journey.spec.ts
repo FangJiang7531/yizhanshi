@@ -95,11 +95,13 @@ test.describe("全链路用户旅程", () => {
     // E2E 仅验证打卡态切换（对话框与乐观更新存在竞态，见 test-report 遗留项）
   });
 
-  test("E. 总览：问候语、统计卡片与快捷入口", async ({ page, request }) => {
+  test("E. 总览：问候语、统计仪表盘与快捷入口", async ({ page, request }) => {
     await registerAndLogin(page, request);
     await expect(page.getByText(/早上好|中午好|下午好|晚上好|夜深了/)).toBeVisible();
-    await expect(page.getByText("今日完成")).toBeVisible();
-    await expect(page.getByText("最长连续")).toBeVisible();
+    // 2026-10 仪表盘化：环形进度（今日任务/今日习惯）+ 最长连续打卡
+    await expect(page.getByText("今日任务", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("今日习惯", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("最长连续打卡")).toBeVisible();
     await expect(page.getByText("快捷入口")).toBeVisible();
   });
 
@@ -115,11 +117,15 @@ test.describe("全链路用户旅程", () => {
   test("G. 访客模式：可浏览全部板块，写操作弹说明对话框（不静默失败）", async ({ page }) => {
     await page.goto("/login");
     await page.getByRole("button", { name: /访客模式/ }).click();
-    await expect(page).toHaveURL(/dashboard/);
+    // dev 服务器对 /dashboard 首次按需编译可能超过默认 8s（实测 30s），放宽到 60s
+    await expect(page).toHaveURL(/dashboard/, { timeout: 60_000 });
 
     await page.getByRole("link", { name: "任务清单" }).first().click();
+    // dev 首编译期间 SSR HTML 先到、hydrate 后到：未 hydrate 时点击不生效，
+    // 等 networkidle（编译+水合完成的稳定信号）再交互
+    await page.waitForLoadState("networkidle", { timeout: 60_000 });
     await page.getByRole("button", { name: "新增任务" }).first().click();
-    await expect(page.getByText("访客模式无法保存数据")).toBeVisible();
+    await expect(page.getByText("访客模式无法保存数据")).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "继续浏览" }).click();
   });
 });
