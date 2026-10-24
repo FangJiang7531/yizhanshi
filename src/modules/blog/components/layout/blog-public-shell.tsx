@@ -118,6 +118,32 @@ export function BlogPublicShell({ children }: { children: ReactNode }) {
           </Link>
         </div>
       </footer>
+
+      {/* 访客注册引导条（2026-10）：未登录/访客在屏幕底部常驻引导，注册后自动消失 */}
+      {identity !== undefined && (identity === null || identity.isGuest) && <GuestBanner />}
+    </div>
+  );
+}
+
+/** 底部常驻注册引导（访客模式下所有公开页面可见） */
+function GuestBanner() {
+  return (
+    <div
+      className="glass-panel sticky bottom-0 z-30 border-x-0 border-b-0"
+      role="complementary"
+      aria-label="注册引导"
+    >
+      <div className="mx-auto flex w-full max-w-[1080px] flex-wrap items-center gap-3 px-4 py-2.5 sm:px-6">
+        <p className="min-w-0 flex-1 truncate text-[13px]" style={{ color: "var(--color-text-secondary)" }}>
+          当前为访客模式，登录后可评论、点赞、私聊与创作 ✨
+        </p>
+        <Link href="/login?mode=register" className="btn btn-primary btn-sm shrink-0">
+          免费注册
+        </Link>
+        <Link href="/login" className="btn btn-outline btn-sm shrink-0">
+          登录
+        </Link>
+      </div>
     </div>
   );
 }

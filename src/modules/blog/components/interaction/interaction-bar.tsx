@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Eye, Heart, Link2, MessageSquare, Repeat2, Share2 } from "lucide-react";
+import { Eye, Heart, MessageSquare, Repeat2 } from "lucide-react";
 import {
   getMyReactionsAction,
   recordViewAction,
@@ -11,6 +11,7 @@ import {
 import { getInteractionCapabilityAction } from "../../actions/comment.actions";
 import { getViewerIdentityAction } from "../../actions/post.actions";
 import { RepostDialog } from "./repost-dialog";
+import { ShareMenu } from "./share-menu";
 import { useToast } from "@/components/feedback/toast";
 
 /**
@@ -148,21 +149,13 @@ export function InteractionBar({
     setC((p) => ({ ...p, repostCount: res.repostCount }));
   }
 
-  async function onShare() {
-    const url = `${window.location.origin}/blog/p/${slug}`;
-    try {
-      if (typeof navigator.share === "function") {
-        await navigator.share({ title, url });
-      } else {
-        await navigator.clipboard.writeText(url);
-        toast.success("链接已复制到剪贴板");
-      }
-      // 站外分享计数：仅登录用户（访客调 shareAction 会被拒，静默跳过）
-      const res = await shareAction({ postId });
-      if (res.success) setC((p) => ({ ...p, shareCount: res.data.shareCount }));
-    } catch {
-      // 用户取消 share 面板不视为错误
-    }
+  /** 分享菜单动作完成后的计数（ShareMenu 各目标统一回调） */
+  function onMenuShared() {
+    void shareAction({ postId })
+      .then((res) => {
+        if (res.success) setC((p) => ({ ...p, shareCount: res.data.shareCount }));
+      })
+      .catch(() => undefined);
   }
 
   function scrollToComments() {
@@ -205,11 +198,12 @@ export function InteractionBar({
         <CountUp value={c.commentCount} />
       </button>
 
-      <button type="button" className="interaction-btn" onClick={() => void onShare()} aria-label="分享到站外">
-        <Share2 size={15} aria-hidden />
-        <span className="tabular-nums">{c.shareCount}</span>
-        <Link2 size={12} aria-hidden className="opacity-60" />
-      </button>
+      <span className="inline-flex items-center gap-0.5">
+        <ShareMenu slug={slug} title={title} onShared={onMenuShared} />
+        <span className="tabular-nums text-xs" style={{ color: "var(--color-text-muted)" }}>
+          {c.shareCount}
+        </span>
+      </span>
 
       <span className="ml-auto flex items-center gap-1.5 text-xs" style={{ color: "var(--color-text-muted)" }}>
         <Eye size={13} aria-hidden />
