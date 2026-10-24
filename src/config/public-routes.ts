@@ -34,6 +34,8 @@ function isPublicSiteFile(pathname: string): boolean {
 const PUBLIC_PATH_MATCHERS: readonly ((pathname: string) => boolean)[] = [
   isPublicBlogPath,
   isPublicSiteFile,
+  // 短链跳转（/s/[slug]）与失效页：任何人点击短链都应直达，不要求登录
+  (pathname) => pathname === "/s" || pathname.startsWith("/s/") || pathname === "/links/gone",
 ];
 
 export function isPublicPath(pathname: string): boolean {
