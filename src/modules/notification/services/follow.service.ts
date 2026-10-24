@@ -62,6 +62,44 @@ export function createFollowService(db: PrismaClient = defaultPrisma) {
       ]);
       return { following, followers, posts };
     },
+
+    /** 某用户的关注列表（TA 关注的人） */
+    async listFollowing(username: string, take = 100) {
+      const user = await db.user.findUnique({ where: { username }, select: { id: true } });
+      if (!user) throw new NotFoundError("用户不存在");
+      const rows = await db.follow.findMany({
+        where: { followerId: user.id },
+        orderBy: { createdAt: "desc" },
+        take,
+        include: {
+          following: { select: { username: true, displayName: true, avatarUrl: true } },
+        },
+      });
+      return rows.map((r) => ({
+        username: r.following.username,
+        displayName: r.following.displayName,
+        avatarUrl: r.following.avatarUrl,
+      }));
+    },
+
+    /** 某用户的粉丝列表 */
+    async listFollowers(username: string, take = 100) {
+      const user = await db.user.findUnique({ where: { username }, select: { id: true } });
+      if (!user) throw new NotFoundError("用户不存在");
+      const rows = await db.follow.findMany({
+        where: { followingId: user.id },
+        orderBy: { createdAt: "desc" },
+        take,
+        include: {
+          follower: { select: { username: true, displayName: true, avatarUrl: true } },
+        },
+      });
+      return rows.map((r) => ({
+        username: r.follower.username,
+        displayName: r.follower.displayName,
+        avatarUrl: r.follower.avatarUrl,
+      }));
+    },
   };
 }
 

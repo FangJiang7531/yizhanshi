@@ -1,4 +1,5 @@
 export type ThemeName =
+  | "aurora"
   | "classic-paper"
   | "tech"
   | "botanical"
@@ -9,6 +10,7 @@ export type ThemeName =
 export type ColorMode = "light" | "dark" | "system";
 
 export const THEMES: { id: ThemeName; name: string; swatch: { bg: string; fg: string; accent: string } }[] = [
+  { id: "aurora", name: "极光蓝紫", swatch: { bg: "#F3F5FF", fg: "#1B2140", accent: "#6D5CFF" } },
   { id: "classic-paper", name: "米黄书页", swatch: { bg: "#FAF6ED", fg: "#3A3226", accent: "#8B6F47" } },
   { id: "tech", name: "科技感", swatch: { bg: "#0A0E1A", fg: "#E6F1FF", accent: "#00D4FF" } },
   { id: "botanical", name: "植物绿", swatch: { bg: "#F4F9F4", fg: "#24352A", accent: "#4A7C59" } },
@@ -17,7 +19,7 @@ export const THEMES: { id: ThemeName; name: string; swatch: { bg: string; fg: st
   { id: "pure-black", name: "纯黑", swatch: { bg: "#000000", fg: "#FFFFFF", accent: "#FFFFFF" } },
 ];
 
-export const DEFAULT_THEME: ThemeName = "classic-paper";
+export const DEFAULT_THEME: ThemeName = "aurora";
 export const DEFAULT_MODE: ColorMode = "system";
 
 export const THEME_LS_KEY = "pwb-theme";

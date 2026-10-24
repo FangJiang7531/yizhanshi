@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Eye, EyeOff, Loader2, Sparkles } from "lucide-react";
+import { Check, Eye, EyeOff, Loader2 } from "lucide-react";
 import { loginAction, registerAction, requestCodeAction, verifyCodeAction } from "../actions/auth-actions";
 import { passwordSchema, usernameSchema } from "../schemas";
 import { useToast } from "@/components/feedback/toast";
@@ -35,13 +35,17 @@ export function AuthPanel({ enabledProviders = [] }: { enabledProviders?: string
   return (
     <div className="w-full max-w-[420px]">
       <div className="text-center mb-7">
-        <div
-          className="inline-flex items-center justify-center w-12 h-12 rounded-[var(--radius-lg)] mb-3"
-          style={{ backgroundColor: "var(--color-primary)", color: "var(--color-primary-fg)" }}
+        {/* 应用图标（取自品牌图：蓝紫莫比乌斯环） */}
+        {/* eslint-disable-next-line @next/next/no-img-element -- 静态资源无需优化器 */}
+        <img
+          src="/icon-512.png"
+          alt=""
+          width={48}
+          height={48}
+          className="mx-auto mb-3 rounded-[12px] shadow-sm"
+          style={{ width: 48, height: 48 }}
           aria-hidden
-        >
-          <Sparkles size={24} />
-        </div>
+        />
         <h1 className="text-[26px] font-semibold leading-tight">个人数字工作台</h1>
         <p className="mt-1.5 text-sm" style={{ color: "var(--color-text-secondary)" }}>
           任务、习惯与更多工具，一个账号全搞定

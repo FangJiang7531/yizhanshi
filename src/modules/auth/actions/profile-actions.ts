@@ -28,15 +28,29 @@ export async function updateProfileAction(
   try {
     const user = await requireNonGuest();
     const data = updateProfileSchema.parse(raw);
+    // 昵称唯一规则：末尾空格视为不存在（trim 后判重），大小写不敏感，本人除外
+    const normalized = data.displayName.trim();
+    const clash = await prisma.user.findFirst({
+      where: {
+        displayName: { equals: normalized, mode: "insensitive" },
+        id: { not: user.id },
+      },
+      select: { id: true },
+    });
+    if (clash) {
+      return fail(
+        new ValidationError({ displayName: ["该昵称已被使用，请换一个"] }, "昵称已被使用"),
+      );
+    }
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        displayName: data.displayName,
+        displayName: normalized,
         ...(data.bio !== undefined ? { bio: data.bio || null } : {}),
       },
     });
     revalidatePath("/", "layout");
-    return ok({ displayName: data.displayName });
+    return ok({ displayName: normalized });
   } catch (err) {
     logger.warn({ module: "profile", err: (err as Error).message }, "updateProfileAction");
     return fail(err);

@@ -28,7 +28,7 @@ async function main() {
       displayName: "演示用户",
       passwordHash,
       timezone: "Asia/Shanghai",
-      setting: { create: { themeName: "classic-paper", colorMode: "SYSTEM" } },
+      setting: { create: { themeName: "aurora", colorMode: "SYSTEM" } },
     },
   });
 

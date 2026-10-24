@@ -12,6 +12,14 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "个人数字工作台",
   description: "一站式个人数字工作台：任务清单、习惯打卡与更多工具",
+  icons: {
+    icon: [
+      { url: "/icon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icon-16.png", sizes: "16x16", type: "image/png" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 /**

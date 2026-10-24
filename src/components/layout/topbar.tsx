@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Menu, Search } from "lucide-react";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { NotificationBell } from "@/modules/notification/components/notification-bell";
+import { MobileBackButton } from "@/components/layout/mobile-nav";
 import { MODULES } from "@/config/modules";
 
 export type TopbarUser = {
@@ -46,6 +47,8 @@ export function Topbar({
       >
         <Menu size={18} />
       </button>
+
+      <MobileBackButton />
 
       <Breadcrumb />
 

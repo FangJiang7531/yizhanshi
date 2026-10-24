@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { ArrowLeft } from "lucide-react";
-import { useToast } from "@/components/feedback/toast";
+import { FeedbackDialog } from "@/modules/feedback/components/feedback-dialog";
 
 export type ComingSoonStatus = "planned" | "integrating" | "coming-soon";
 
@@ -42,7 +42,7 @@ export function ComingSoonPage({
   description: string;
   status: ComingSoonStatus;
 }) {
-  const toast = useToast();
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const meta = STATUS_TEXT[status];
 
   return (
@@ -91,11 +91,7 @@ export function ComingSoonPage({
       </div>
 
       <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row">
-        <button
-          type="button"
-          className="btn btn-outline"
-          onClick={() => toast.info("感谢反馈！需求收集入口即将开放")}
-        >
+        <button type="button" className="btn btn-outline" onClick={() => setFeedbackOpen(true)}>
           想要什么功能？告诉我们 →
         </button>
         <Link href="/dashboard" className="btn btn-ghost">
@@ -103,6 +99,8 @@ export function ComingSoonPage({
           回到总览
         </Link>
       </div>
+
+      <FeedbackDialog source={name} open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
     </div>
   );
 }

@@ -19,6 +19,7 @@ import { useToast } from "@/components/feedback/toast";
 import { Modal } from "@/components/ui/modal";
 import { MarkdownEditor, type MarkdownEditorHandle } from "./markdown-editor";
 import { EditorToolbar } from "./editor-toolbar";
+import { LiteEditor } from "./lite-editor";
 import { EditorInfoPanel, type EditorFormValues } from "./editor-info-panel";
 import { PreviewPane } from "./preview-pane";
 import { DataCardDialog } from "./data-card-dialog";
@@ -215,6 +216,22 @@ export function EditorShell({ post, initialPreview = false }: { post: PostEditDT
 
   // ───────── 数据卡片 ─────────
   const [dataCardOpen, setDataCardOpen] = useState(false);
+  // 编辑模式：专业版（全功能）/ 轻量版（社交发帖式），偏好持久化
+  const [liteMode, setLiteMode] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return window.localStorage.getItem("pwb-editor-mode") === "lite";
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("pwb-editor-mode", liteMode ? "lite" : "pro");
+    } catch {
+      // ignore
+    }
+  }, [liteMode]);
   const handleInsertCard = useCallback((marker: string) => {
     editorRef.current?.insertText(`\n\n${marker}\n\n`);
     toast("success", "数据卡片已插入");
@@ -405,8 +422,8 @@ export function EditorShell({ post, initialPreview = false }: { post: PostEditDT
         </div>
       )}
 
-      {/* 顶栏 */}
-      <div className="flex h-12 shrink-0 items-center gap-2 border-b px-3" style={{ borderColor: "var(--color-border)" }}>
+      {/* 顶栏（窄屏允许换行，避免右侧按钮被截断） */}
+      <div className="flex min-h-12 shrink-0 flex-wrap items-center gap-2 border-b px-3 py-1" style={{ borderColor: "var(--color-border)" }}>
         <Link
           href="/space"
           className="icon-btn"
@@ -436,12 +453,14 @@ export function EditorShell({ post, initialPreview = false }: { post: PostEditDT
 
         <span className="mx-1 hidden h-4 w-px sm:block" style={{ backgroundColor: "var(--color-border)" }} aria-hidden />
 
-        {/* 桌面视图模式切换 */}
-        <div className="hidden items-center gap-0.5 md:flex">
-          <ViewModeButton active={mode === "split"} title="分栏视图" onClick={() => changeMode("split")} icon={Columns2} />
-          <ViewModeButton active={mode === "edit"} title="纯编辑" onClick={() => changeMode("edit")} icon={PenLine} />
-          <ViewModeButton active={mode === "preview"} title="纯预览" onClick={() => changeMode("preview")} icon={Eye} />
-        </div>
+        {/* 桌面视图模式切换（轻量版隐藏） */}
+        {!liteMode && (
+          <div className="hidden items-center gap-0.5 md:flex">
+            <ViewModeButton active={mode === "split"} title="分栏视图" onClick={() => changeMode("split")} icon={Columns2} />
+            <ViewModeButton active={mode === "edit"} title="纯编辑" onClick={() => changeMode("edit")} icon={PenLine} />
+            <ViewModeButton active={mode === "preview"} title="纯预览" onClick={() => changeMode("preview")} icon={Eye} />
+          </div>
+        )}
 
         {/* 移动端 tab */}
         <div className="flex items-center gap-0.5 md:hidden">
@@ -470,6 +489,35 @@ export function EditorShell({ post, initialPreview = false }: { post: PostEditDT
         </div>
 
         <div className="ml-auto flex items-center gap-1.5">
+          {/* 专业 / 轻量 编辑模式切换 */}
+          <div className="flex shrink-0 items-center rounded-full p-0.5" style={{ backgroundColor: "var(--color-bg-elevated)" }} role="group" aria-label="编辑模式">
+            <button
+              type="button"
+              className="rounded-full px-2.5 py-1 text-[11px] transition-colors"
+              style={{
+                backgroundColor: !liteMode ? "var(--color-primary)" : "transparent",
+                color: !liteMode ? "var(--color-primary-fg)" : "var(--color-text-muted)",
+              }}
+              onClick={() => setLiteMode(false)}
+              aria-pressed={!liteMode}
+              title="专业版：完整 Markdown 工具栏、分栏预览、数据卡片"
+            >
+              专业
+            </button>
+            <button
+              type="button"
+              className="rounded-full px-2.5 py-1 text-[11px] transition-colors"
+              style={{
+                backgroundColor: liteMode ? "var(--color-primary)" : "transparent",
+                color: liteMode ? "var(--color-primary-fg)" : "var(--color-text-muted)",
+              }}
+              onClick={() => setLiteMode(true)}
+              aria-pressed={liteMode}
+              title="轻量版：像发朋友圈一样写文章，输入文字、插图即可"
+            >
+              轻量
+            </button>
+          </div>
           {imageUploading && (
             <span className="flex items-center gap-1 text-xs" style={{ color: "var(--color-text-muted)" }}>
               <Loader2 size={12} className="animate-spin" />
@@ -537,40 +585,53 @@ export function EditorShell({ post, initialPreview = false }: { post: PostEditDT
         )}
 
         {/* 编辑 + 预览 */}
-        <div className={`flex min-h-0 min-w-0 flex-1 ${showSplitDesktop ? "grid grid-cols-2" : ""}`}>
-          {/* 编辑区 */}
+        <div className={`flex min-h-0 min-w-0 flex-1 ${!liteMode && showSplitDesktop ? "grid grid-cols-2" : ""}`}>
+          {/* 编辑区（专业版：CodeMirror + 全工具栏；轻量版：社交发帖式大输入框） */}
           <div className={`flex min-h-0 min-w-0 flex-col ${showEdit ? "flex" : "hidden"}`}>
-          <EditorToolbar
-            editorRef={editorRef}
-            onPickImage={() => imageInputRef.current?.click()}
-            onOpenDataCard={() => setDataCardOpen(true)}
-          />
-          <div className="min-h-0 flex-1 overflow-hidden">
-            <MarkdownEditor
-              ref={editorRef}
-              value={contentMd}
-              onChange={updateContent}
-              onCursorChange={setCursor}
-              onSave={() => void autosave.flush()}
-              onPublish={() => void handlePublish()}
-              onPasteFile={(f) => void handlePasteFile(f)}
-              onScrollRatio={(ratio) => {
-                const el = previewScrollRef.current;
-                if (!el) return;
-                const max = el.scrollHeight - el.clientHeight;
-                if (max > 0) el.scrollTop = ratio * max;
-              }}
-            />
+            {liteMode ? (
+              <LiteEditor
+                value={contentMd}
+                onChange={updateContent}
+                onPasteFile={(f) => void handlePasteFile(f)}
+                previewRef={previewScrollRef}
+              />
+            ) : (
+              <>
+                <EditorToolbar
+                  editorRef={editorRef}
+                  onPickImage={() => imageInputRef.current?.click()}
+                  onOpenDataCard={() => setDataCardOpen(true)}
+                />
+                <div className="min-h-0 flex-1 overflow-hidden">
+                  <MarkdownEditor
+                    ref={editorRef}
+                    value={contentMd}
+                    onChange={updateContent}
+                    onCursorChange={setCursor}
+                    onSave={() => void autosave.flush()}
+                    onPublish={() => void handlePublish()}
+                    onPasteFile={(f) => void handlePasteFile(f)}
+                    onScrollRatio={(ratio) => {
+                      const el = previewScrollRef.current;
+                      if (!el) return;
+                      const max = el.scrollHeight - el.clientHeight;
+                      if (max > 0) el.scrollTop = ratio * max;
+                    }}
+                  />
+                </div>
+              </>
+            )}
           </div>
-        </div>
 
-        {/* 预览区 */}
-        <div
-          className={`min-h-0 min-w-0 flex-col border-l ${showPreview ? "flex" : "hidden"} ${showSplitDesktop ? "" : "flex-1"}`}
-          style={{ borderColor: "var(--color-border)" }}
-        >
-          <PreviewPane contentMd={contentMd} containerRef={previewScrollRef} className="h-full" />
-        </div>
+          {/* 预览区（轻量版内置预览切换，仅专业版显示此栏） */}
+          {!liteMode && (
+            <div
+              className={`min-h-0 min-w-0 flex-col border-l ${showPreview ? "flex" : "hidden"} ${showSplitDesktop ? "" : "flex-1"}`}
+              style={{ borderColor: "var(--color-border)" }}
+            >
+              <PreviewPane contentMd={contentMd} containerRef={previewScrollRef} className="h-full" />
+            </div>
+          )}
         </div>
       </div>
 

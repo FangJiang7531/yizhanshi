@@ -7,6 +7,7 @@ import { Topbar, type TopbarUser } from "./topbar";
 import { CommandPalette, useRecentPageTracker } from "./command-palette";
 import { MobileTabBar } from "./mobile-tab-bar";
 import { BackToTop } from "./back-to-top";
+import { useRubberBand } from "@/lib/hooks/use-rubber-band";
 import { getModuleMeta } from "@/config/modules";
 
 /**
@@ -45,6 +46,7 @@ export function PlatformShell({
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
   useRecentPageTracker();
+  useRubberBand(true); // 手机端滚动到顶/底的回弹
 
   const mod = getModuleMeta(pathname);
   const contentMaxWidth = (mod && MODULE_WIDTH[mod.key]) ?? "var(--standard-width)";
@@ -58,13 +60,15 @@ export function PlatformShell({
         mobileOpen={mobileOpen}
         onCloseMobile={() => setMobileOpen(false)}
       />
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col" id="rubber-band-root">
         <Topbar user={user} onOpenMobileNav={() => setMobileOpen(true)} />
         <main
           className="page-enter mx-auto w-full flex-1 px-4 pb-20 pt-2 sm:px-6 md:pb-6 lg:px-8"
           style={{
             viewTransitionName: "content-area",
+            // 自适应：w-full 保证小屏占满视口；大屏按板块节奏定宽
             maxWidth: contentMaxWidth,
+            width: "100%",
             transition: "max-width var(--duration-base) var(--ease-out)",
           }}
           data-module={mod?.key ?? "unknown"}

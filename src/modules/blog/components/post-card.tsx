@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { Eye, Heart, MessageSquare, Clock } from "lucide-react";
+import { Eye, MessageSquare, Clock } from "lucide-react";
 import { formatCount, formatDate, formatReadingTime, isoDateOnly } from "../lib/format";
 import { TagRow } from "./tag-chip";
+import { ListLikeButton } from "./list-like-button";
 import type { PostListItemDTO } from "../types";
 
 /** 作者头像：有图用图，否则首字章（与平台顶栏同一套视觉规则） */
@@ -67,8 +68,28 @@ function StatItem({ icon, value, label }: { icon: React.ReactNode; value: number
  * 纯函数与 next/link，不触碰任何服务端专有 API。
  */
 export function PostCard({ post }: { post: PostListItemDTO }) {
+  const commentsHref = `/blog/p/${post.slug}#comments`;
   return (
-    <article className="group flex gap-4 py-6 sm:gap-6">
+    <article className="group flex flex-col gap-4 py-6 sm:flex-row sm:gap-6">
+      {/* 手机端封面横幅：列表页直接可见（PC 保持右侧缩略图布局） */}
+      {post.coverImage && (
+        <Link
+          href={`/blog/p/${post.slug}`}
+          className="shrink-0 overflow-hidden rounded-[var(--radius)] sm:hidden"
+          style={{ aspectRatio: "16 / 9" }}
+          tabIndex={-1}
+          aria-hidden
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- 上传图走本地 API 路由且已转 WebP */}
+          <img
+            src={post.coverImage}
+            alt=""
+            loading="lazy"
+            className="h-full w-full object-cover"
+          />
+        </Link>
+      )}
+
       <div className="min-w-0 flex-1">
         <h2 className="text-[19px] font-semibold leading-snug tracking-tight sm:text-[21px]">
           <Link
@@ -103,8 +124,17 @@ export function PostCard({ post }: { post: PostListItemDTO }) {
           </span>
           <span className="ml-auto flex items-center gap-3" style={{ color: "var(--color-text-muted)" }}>
             <StatItem icon={<Eye size={13} />} value={post.viewCount} label="浏览" />
-            <StatItem icon={<Heart size={13} />} value={post.likeCount} label="点赞" />
-            <StatItem icon={<MessageSquare size={13} />} value={post.commentCount} label="评论" />
+            {/* 列表内直接点赞（交互组件）；评论图标点击直达评论区 */}
+            <ListLikeButton postId={post.id} likeCount={post.likeCount} slug={post.slug} />
+            <Link
+              href={commentsHref}
+              className="inline-flex items-center gap-1 transition-colors hover:text-[var(--color-primary)]"
+              title="查看评论"
+              aria-label={`评论 ${post.commentCount} 条，点击前往评论区`}
+            >
+              <MessageSquare size={13} aria-hidden />
+              {formatCount(post.commentCount)}
+            </Link>
           </span>
         </div>
 

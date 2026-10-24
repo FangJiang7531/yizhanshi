@@ -43,6 +43,87 @@
   --content-fade-height: 32px;
 }
 
+/* ---------- aurora 极光蓝紫（默认主题，取自应用图标配色） ---------- */
+[data-theme="aurora"][data-mode="light"] {
+  --color-bg-base: #f3f5ff;
+  --color-bg-surface: #ffffff;
+  --color-bg-elevated: #f7f8ff;
+  --color-text-primary: #1b2140;
+  --color-text-secondary: #454e78;
+  --color-text-muted: #8a92b8;
+  --color-border: #dde1f5;
+  --color-primary: #5152e8;
+  --color-primary-hover: #4343d6;
+  --color-primary-fg: #ffffff;
+  --color-success: #1a9e6e;
+  --color-warning: #c07a1a;
+  --color-danger: #d8434f;
+  --color-info: #2a7fd4;
+  --color-accent: #6d5cff;
+  --shadow-sm: 0 1px 2px rgba(27, 33, 64, 0.06);
+  --shadow-md: 0 4px 12px rgba(27, 33, 64, 0.1);
+  --shadow-lg: 0 12px 32px rgba(27, 33, 64, 0.16);
+}
+
+[data-theme="aurora"][data-mode="dark"] {
+  --color-bg-base: #0d1026;
+  --color-bg-surface: #161a38;
+  --color-bg-elevated: #1f2448;
+  --color-text-primary: #e9ecff;
+  --color-text-secondary: #aab2e0;
+  --color-text-muted: #6f78a8;
+  --color-border: #2a3060;
+  --color-primary: #7d8cff;
+  --color-primary-hover: #97a2ff;
+  --color-primary-fg: #0d1026;
+  --color-success: #4ad6a0;
+  --color-warning: #f0b45c;
+  --color-danger: #ff7b85;
+  --color-info: #5eb0ff;
+  --color-accent: #9d8cff;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.55);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.65);
+}
+
+/* ---------- 极光壁纸 UI（品牌图底，PC/手机自适应） ----------
+   aurora 深色模式：body 直接以品牌波浪壁纸为底，导航栏与卡片玻璃化贴合；
+   竖屏/窄屏自动切换手机版壁纸。浅色模式保持图标配色的浅色渐变，保证可读性。 */
+[data-theme="aurora"][data-mode="dark"] body {
+  background-image: url("/wallpaper/wave-pc.jpg");
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+/* 手机竖屏 → 手机版壁纸 */
+@media (orientation: portrait), (max-width: 767px) {
+  [data-theme="aurora"][data-mode="dark"] body {
+    background-image: url("/wallpaper/wave-mobile.jpg");
+  }
+}
+/* 侧边栏：深色玻璃（壁纸上仍可读） */
+[data-theme="aurora"][data-mode="dark"] aside {
+  background: linear-gradient(
+    to right,
+    color-mix(in srgb, #0d1026 68%, transparent) 0%,
+    color-mix(in srgb, #0d1026 60%, transparent) 78%,
+    color-mix(in srgb, #0d1026 40%, transparent) 100%
+  ) !important;
+  backdrop-filter: blur(18px) saturate(1.3);
+  -webkit-backdrop-filter: blur(18px) saturate(1.3);
+}
+/* 顶栏与卡片：低不透明度玻璃，让波浪透出来 */
+[data-theme="aurora"][data-mode="dark"] .card {
+  background-color: color-mix(in srgb, #141838 72%, transparent);
+  backdrop-filter: blur(14px) saturate(1.25);
+  -webkit-backdrop-filter: blur(14px) saturate(1.25);
+  border-color: color-mix(in srgb, #7d8cff 14%, transparent);
+}
+[data-theme="aurora"][data-mode="dark"] header.sticky {
+  background-color: color-mix(in srgb, #0d1026 55%, transparent) !important;
+}
+
 /* ---------- classic-paper 米黄书页 ---------- */
 [data-theme="classic-paper"][data-mode="light"] {
   --color-bg-base: #faf6ed;
@@ -872,6 +953,35 @@ body {
 }
 .group-chevron[data-open="false"] {
   transform: rotate(-90deg);
+}
+
+/* ---------- 编辑器工具按钮：悬停 1s 后浮现功能简介（CSS tooltip） ---------- */
+.editor-tool-btn {
+  position: relative;
+}
+.editor-tool-btn::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  translate: -50% 0;
+  z-index: 60;
+  padding: 4px 9px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  line-height: 1.4;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  background-color: color-mix(in srgb, var(--color-text-primary) 92%, transparent);
+  color: var(--color-bg-base);
+  transition: opacity 160ms var(--ease-out);
+  transition-delay: 0s;
+}
+.editor-tool-btn:hover::after,
+.editor-tool-btn:focus-visible::after {
+  opacity: 1;
+  transition-delay: 1s; /* 悬停 1 秒后才显示 */
 }
 
 /* ---------- 设置齿轮悬停旋转 ---------- */

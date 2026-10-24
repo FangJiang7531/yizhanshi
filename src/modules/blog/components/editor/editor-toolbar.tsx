@@ -125,8 +125,8 @@ export function EditorToolbar({
             <button
               key={btn.key}
               type="button"
-              title={btn.label}
               aria-label={btn.label}
+              data-tip={btn.label}
               className="editor-tool-btn"
               onClick={() => handleClick(btn)}
               disabled={disabled}
@@ -139,8 +139,8 @@ export function EditorToolbar({
       <span className="mx-1 h-4 w-px shrink-0" style={{ backgroundColor: "var(--color-border)" }} aria-hidden />
       <button
         type="button"
-        title="插入数据卡片"
         aria-label="插入数据卡片"
+        data-tip="插入数据卡片"
         className="editor-tool-btn editor-tool-btn-wide"
         onClick={onOpenDataCard}
         disabled={disabled}

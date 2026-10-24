@@ -1,16 +1,30 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Camera, Pencil } from "lucide-react";
+import { Camera, MessageCircle, Pencil, UserCheck, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/feedback/toast";
-import { uploadCoverAction, removeCoverAction, updateProfileAction } from "@/modules/auth/actions/profile-actions";
+import {
+  uploadCoverAction,
+  removeCoverAction,
+  updateProfileAction,
+} from "@/modules/auth/actions/profile-actions";
+import {
+  isFollowingAction,
+  listFollowersAction,
+  listFollowingAction,
+  toggleFollowAction,
+} from "@/modules/notification/actions/follow.actions";
 import { UserAvatarMenu } from "@/modules/notification/components/user-avatar-menu";
+
+type FollowUser = { username: string; displayName: string | null; avatarUrl: string | null };
 
 /**
  * 空间头部（客户端）：封面（挂图/上传）+ 圆形头像 + 昵称/简介/资料设置 + 关注·粉丝·动态。
- * 手机端「下拉到顶放大封面并丝滑回弹」：全局监听 touch——页面已滚到顶（scrollY≤0）仍向下拉时
- * 按下拉距离放大封面，松手后以弹性缓动回弹（prefers-reduced-motion 时禁用）。
+ * - 关注/私聊按钮直接置于头部（他人空间）；自己的空间点击关注/粉丝数可查看列表；
+ * - 头像弹出菜单不被裁剪：容器不用 overflow-hidden，封面圆角由内部元素承担；
+ * - 简介与右侧统计分行排布，杜绝窄屏重叠；
+ * - 手机端「下拉到顶放大封面并丝滑回弹」（全局 touch 监听，reduced-motion 降级）。
  */
 export function SpaceHeader({
   username,
@@ -39,6 +53,19 @@ export function SpaceHeader({
   const [editingBio, setEditingBio] = useState(false);
   const [nameDraft, setNameDraft] = useState(displayName);
   const [editingName, setEditingName] = useState(false);
+  const [following, setFollowing] = useState(false);
+  const [followBusy, setFollowBusy] = useState(false);
+  const [followList, setFollowList] = useState<{ kind: "following" | "followers"; items: FollowUser[] } | null>(null);
+  const [listLoading, setListLoading] = useState(false);
+
+  // 他人空间：挂载时查询关注态
+  useEffect(() => {
+    if (isMe) return;
+    void (async () => {
+      const res = await isFollowingAction({ username });
+      if (res.success) setFollowing(res.data.following);
+    })();
+  }, [isMe, username]);
 
   // 手机端下拉放大 + 回弹（仅触屏；reduced-motion 用户跳过）
   useEffect(() => {
@@ -110,13 +137,41 @@ export function SpaceHeader({
     }
   }
 
+  async function handleFollow() {
+    if (followBusy) return;
+    setFollowBusy(true);
+    const res = await toggleFollowAction({ username });
+    setFollowBusy(false);
+    if (res.success) {
+      setFollowing(res.data.following);
+      toast("success", res.data.following ? `已关注 ${displayName}` : "已取消关注");
+    } else {
+      toast("error", res.error.message);
+    }
+  }
+
+  async function openFollowList(kind: "following" | "followers") {
+    // 自己的空间才可查看列表（他人空间点数字无动作）
+    if (!isMe) return;
+    setListLoading(true);
+    setFollowList({ kind, items: [] });
+    const res = kind === "following" ? await listFollowingAction({ username }) : await listFollowersAction({ username });
+    setListLoading(false);
+    if (res.success) {
+      setFollowList({ kind, items: res.data.items });
+    } else {
+      toast("error", res.error.message);
+      setFollowList(null);
+    }
+  }
+
   const name = displayName;
 
   return (
-    <header className="relative overflow-hidden rounded-[var(--radius-lg)]">
+    <header className="relative rounded-[var(--radius-lg)]" style={{ backgroundColor: "var(--color-bg-surface)", border: "1px solid color-mix(in srgb, var(--color-border) 30%, transparent)" }}>
       {/* 封面：有图挂图，无图用主题渐变；下拉时放大（手机端 overscroll 弹性） */}
       <div
-        className="relative h-40 sm:h-52"
+        className="relative h-40 rounded-t-[var(--radius-lg)] sm:h-52"
         style={{
           background: cover
             ? `url(${cover}) center/cover`
@@ -167,85 +222,121 @@ export function SpaceHeader({
         )}
       </div>
 
-      {/* 信息区：头像叠在封面下缘 */}
-      <div className="relative flex flex-wrap items-end gap-4 px-5 pb-4">
-        <div className="-mt-8 sm:-mt-10">
-          <UserAvatarMenu username={username} displayName={name} avatarUrl={avatarUrl} isMe={isMe}>
-            {avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element -- 头像走本地 API
-              <img
-                src={avatarUrl}
-                alt=""
-                width={72}
-                height={72}
-                className="rounded-full border-4 object-cover"
-                style={{
-                  width: 72,
-                  height: 72,
-                  borderColor: "var(--color-bg-surface)",
-                }}
-              />
-            ) : (
-              <span
-                aria-hidden
-                className="flex items-center justify-center rounded-full border-4 text-2xl font-bold"
-                style={{
-                  width: 72,
-                  height: 72,
-                  borderColor: "var(--color-bg-surface)",
-                  background: "linear-gradient(135deg, var(--color-primary), var(--color-accent))",
-                  color: "var(--color-primary-fg)",
-                }}
-              >
-                {name.slice(0, 1).toUpperCase()}
-              </span>
-            )}
-          </UserAvatarMenu>
-        </div>
-
-        <div className="min-w-0 flex-1 pb-1">
-          <div className="flex flex-wrap items-center gap-2">
-            {editingName ? (
-              <span className="flex items-center gap-2">
-                <input
-                  className="input max-w-[220px] py-1 text-base"
-                  value={nameDraft}
-                  onChange={(e) => setNameDraft(e.target.value)}
-                  maxLength={30}
-                  aria-label="昵称"
+      {/* 信息区：头像叠在封面下缘；简介行与统计行分离，杜绝重叠 */}
+      <div className="relative px-5 pb-4">
+        <div className="flex items-end justify-between gap-3">
+          <div className="-mt-8 shrink-0 sm:-mt-10">
+            <UserAvatarMenu username={username} displayName={name} avatarUrl={avatarUrl} isMe={isMe}>
+              {avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element -- 头像走本地 API
+                <img
+                  src={avatarUrl}
+                  alt=""
+                  width={72}
+                  height={72}
+                  className="rounded-full border-4 object-cover"
+                  style={{ width: 72, height: 72, borderColor: "var(--color-bg-surface)" }}
                 />
-                <button type="button" className="btn btn-primary btn-sm" onClick={() => void saveName()}>
-                  保存
-                </button>
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditingName(false)}>
-                  取消
-                </button>
-              </span>
-            ) : (
-              <h1 className="truncate text-lg font-semibold">{name}</h1>
-            )}
-            {!editingName && (
-              <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>
-                @{username}
-              </span>
-            )}
-            {isMe && !editingName && (
-              <button
-                type="button"
-                className="icon-btn !h-7 !w-7"
-                aria-label="编辑昵称"
-                title="编辑昵称"
-                onClick={() => setEditingName(true)}
-              >
-                <Pencil size={13} />
-              </button>
-            )}
+              ) : (
+                <span
+                  aria-hidden
+                  className="flex items-center justify-center rounded-full border-4 text-2xl font-bold"
+                  style={{
+                    width: 72,
+                    height: 72,
+                    borderColor: "var(--color-bg-surface)",
+                    background: "linear-gradient(135deg, var(--color-primary), var(--color-accent))",
+                    color: "var(--color-primary-fg)",
+                  }}
+                >
+                  {name.slice(0, 1).toUpperCase()}
+                </span>
+              )}
+            </UserAvatarMenu>
           </div>
 
-          {editingBio ? (
-            <div className="mt-1 flex items-center gap-2">
+          {/* 关注/粉丝/动态：窄屏独占一行（w-full），不与简介挤压重叠 */}
+          <dl className="flex shrink-0 items-center gap-5 pt-3 text-sm sm:pt-4">
+            <Stat
+              label="关注"
+              value={stats.following}
+              onClick={isMe ? () => void openFollowList("following") : undefined}
+            />
+            <Stat
+              label="粉丝"
+              value={stats.followers}
+              onClick={isMe ? () => void openFollowList("followers") : undefined}
+            />
+            <Stat label="动态" value={stats.posts} />
+          </dl>
+        </div>
+
+        {/* 第二行：昵称 + 操作按钮 */}
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          {editingName ? (
+            <span className="flex flex-wrap items-center gap-2">
               <input
-                className="input max-w-md py-1 text-sm"
+                className="input max-w-[220px] py-1 text-base"
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                maxLength={30}
+                aria-label="昵称"
+              />
+              <button type="button" className="btn btn-primary btn-sm" onClick={() => void saveName()}>
+                保存
+              </button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditingName(false)}>
+                取消
+              </button>
+            </span>
+          ) : (
+            <h1 className="max-w-full truncate text-lg font-semibold">{name}</h1>
+          )}
+          {!editingName && (
+            <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+              @{username}
+            </span>
+          )}
+          {isMe && !editingName && (
+            <button
+              type="button"
+              className="icon-btn !h-7 !w-7"
+              aria-label="编辑昵称"
+              title="编辑昵称"
+              onClick={() => setEditingName(true)}
+            >
+              <Pencil size={13} />
+            </button>
+          )}
+          {!isMe && (
+            <span className="ml-auto flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                className={`btn btn-sm ${following ? "btn-outline" : "btn-primary"}`}
+                onClick={() => void handleFollow()}
+                disabled={followBusy}
+              >
+                <UserCheck size={14} aria-hidden />
+                {following ? "已关注" : "关注"}
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={() => router.push(`/messages?with=${encodeURIComponent(username)}`)}
+              >
+                <MessageCircle size={14} aria-hidden />
+                私聊
+              </button>
+            </span>
+          )}
+        </div>
+
+        {/* 第三行：简介（独立一行，截断显示，绝不与统计重叠） */}
+        <div className="mt-1.5">
+          {editingBio ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                className="input min-w-0 max-w-md flex-1 py-1 text-sm"
                 value={bioDraft}
                 placeholder="介绍一下自己（最多 200 字）"
                 onChange={(e) => setBioDraft(e.target.value)}
@@ -262,7 +353,7 @@ export function SpaceHeader({
           ) : (
             <button
               type="button"
-              className="mt-0.5 block max-w-md truncate text-left text-sm transition-colors"
+              className="block max-w-full truncate text-left text-sm transition-colors"
               style={{ color: "var(--color-text-secondary)" }}
               onClick={() => isMe && setEditingBio(true)}
               title={isMe ? "点击编辑简介" : undefined}
@@ -271,25 +362,101 @@ export function SpaceHeader({
             </button>
           )}
         </div>
-
-        {/* 关注 / 粉丝 / 动态 */}
-        <dl className="flex items-center gap-5 pb-1 text-sm">
-          <Stat label="关注" value={stats.following} />
-          <Stat label="粉丝" value={stats.followers} />
-          <Stat label="动态" value={stats.posts} />
-        </dl>
       </div>
+
+      {/* 关注/粉丝列表弹窗（自己的空间点击数字查看） */}
+      {followList && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ backgroundColor: "rgba(0,0,0,0.45)" }}
+          onClick={() => setFollowList(null)}
+          role="dialog"
+          aria-label={followList.kind === "following" ? "关注列表" : "粉丝列表"}
+        >
+          <div className="card pop-in flex max-h-[70vh] w-full max-w-sm flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <header className="flex items-center justify-between px-4 py-3">
+              <h3 className="text-sm font-semibold">{followList.kind === "following" ? "关注列表" : "粉丝列表"}</h3>
+              <button type="button" className="icon-btn" onClick={() => setFollowList(null)} aria-label="关闭">
+                <X size={16} />
+              </button>
+            </header>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {listLoading ? (
+                <div className="space-y-2 p-4">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="skeleton h-10" />
+                  ))}
+                </div>
+              ) : followList.items.length === 0 ? (
+                <p className="p-8 text-center text-sm" style={{ color: "var(--color-text-muted)" }}>
+                  {followList.kind === "following" ? "还没有关注任何人" : "还没有粉丝"}
+                </p>
+              ) : (
+                <ul>
+                  {followList.items.map((u) => (
+                    <li key={u.username}>
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-[var(--color-bg-elevated)]"
+                        onClick={() => {
+                          setFollowList(null);
+                          router.push(`/blog/u/${u.username}`);
+                        }}
+                      >
+                        {u.avatarUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element -- 头像走本地 API
+                          <img src={u.avatarUrl} alt="" width={32} height={32} className="shrink-0 rounded-full object-cover" style={{ width: 32, height: 32 }} />
+                        ) : (
+                          <span
+                            aria-hidden
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+                            style={{
+                              background: "linear-gradient(135deg, var(--color-primary), var(--color-accent))",
+                              color: "var(--color-primary-fg)",
+                            }}
+                          >
+                            {(u.displayName ?? u.username).slice(0, 1).toUpperCase()}
+                          </span>
+                        )}
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[13px] font-medium">{u.displayName ?? u.username}</span>
+                          <span className="block truncate text-[11px]" style={{ color: "var(--color-text-muted)" }}>
+                            @{u.username}
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="flex items-baseline gap-1.5">
+function Stat({ label, value, onClick }: { label: string; value: number; onClick?: () => void }) {
+  const content = (
+    <>
       <dd className="text-base font-semibold tabular-nums">{value.toLocaleString("zh-CN")}</dd>
       <dt className="text-xs" style={{ color: "var(--color-text-muted)" }}>
         {label}
       </dt>
-    </div>
+    </>
   );
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex items-baseline gap-1.5 rounded-[var(--radius-sm)] px-1 py-0.5 transition-colors hover:bg-[var(--color-bg-elevated)]"
+        title={`查看${label}列表`}
+      >
+        {content}
+      </button>
+    );
+  }
+  return <div className="flex items-baseline gap-1.5">{content}</div>;
 }

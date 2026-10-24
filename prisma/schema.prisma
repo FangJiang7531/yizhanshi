@@ -137,15 +137,16 @@ model User {
   postLikes              PostLike[]
   reposts                PostRepost[]
   commentLikes           CommentLike[]
-  notifications          Notification[]  @relation("notificationRecipient")
-  triggeredNotifies      Notification[]  @relation("notificationActor")
-  followerLinks          Follow[]        @relation("followFollower")
-  followingLinks         Follow[]        @relation("followFollowing")
-  conversationsInitiated Conversation[]  @relation("conversationInitiator")
-  conversationsJoined    Conversation[]  @relation("conversationJoined")
+  notifications          Notification[]   @relation("notificationRecipient")
+  triggeredNotifies      Notification[]   @relation("notificationActor")
+  followerLinks          Follow[]         @relation("followFollower")
+  followingLinks         Follow[]         @relation("followFollowing")
+  conversationsInitiated Conversation[]   @relation("conversationInitiator")
+  conversationsJoined    Conversation[]   @relation("conversationJoined")
   directMessages         DirectMessage[]
   shortLinks             ShortLink[]
   bookmarks              Bookmark[]
+  featureRequests        FeatureRequest[]
 }
 
 model Session {
@@ -180,7 +181,7 @@ model VerificationCode {
 
 model UserSetting {
   userId        String    @id
-  themeName     String    @default("classic-paper")
+  themeName     String    @default("aurora")
   colorMode     ColorMode @default(SYSTEM)
   weekStartDay  Int       @default(1)
   notifyEmail   Boolean   @default(false)
@@ -215,6 +216,26 @@ model RateLimitBucket {
   key         String   @id
   count       Int      @default(0)
   windowStart DateTime @default(now())
+}
+
+/// 需求反馈（意见征集）：未开放板块「想要什么功能，告诉我们」提交内容。
+/// 同时追加写入 feedback/意见征集.md（文件侧归档），后台 /feedback 页面可随时查看。
+model FeatureRequest {
+  id         String   @id @default(cuid())
+  /// 提交者（登录用户；未登录为 null）
+  userId     String?
+  /// 提交者展示名（快照，防用户改名后无法追溯）
+  authorName String   @db.VarChar(100)
+  /// 来源板块（如 问卷 / 视频下载 / AI 预览）
+  source     String   @db.VarChar(100)
+  content    String   @db.VarChar(2000)
+  /// "NEW" | "PLANNED" | "DONE"（后台标记）
+  status     String   @default("NEW")
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt(sort: Desc)])
 }
 
 /// 后台任务表（JobRunner 适配器载体；本期不接 Cron 触发）

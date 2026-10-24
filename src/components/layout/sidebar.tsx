@@ -117,16 +117,17 @@ export function Sidebar({
             aria-label="回到总览"
             onClick={onCloseMobile}
           >
-            <span
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-[13px] font-bold"
-              style={{
-                background: "linear-gradient(135deg, var(--color-primary), var(--color-accent))",
-                color: "var(--color-primary-fg)",
-              }}
+            {/* 应用图标（品牌图：蓝紫莫比乌斯环） */}
+            {/* eslint-disable-next-line @next/next/no-img-element -- 静态资源 */}
+            <img
+              src="/icon-192.png"
+              alt=""
+              width={28}
+              height={28}
+              className="shrink-0 rounded-[7px]"
+              style={{ width: 28, height: 28 }}
               aria-hidden
-            >
-              台
-            </span>
+            />
             <span
               className="truncate text-sm font-semibold tracking-wide transition-opacity duration-150"
               style={{
