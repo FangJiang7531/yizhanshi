@@ -56,6 +56,12 @@ const envSchema = z.object({
   BLOG_COMMENT_RATE_LIMIT: z.coerce.number().int().positive().default(10),
   /** 新注册用户的冷静期（小时）：期间评论直接进人工审核队列 */
   BLOG_NEW_USER_COOLDOWN_HOURS: z.coerce.number().int().min(0).default(24),
+
+  // ---------- 第三方登录（OAuth 授权码流程；双要素齐备才启用对应按钮）----------
+  GITHUB_CLIENT_ID: optionalText,
+  GITHUB_CLIENT_SECRET: optionalText,
+  GOOGLE_CLIENT_ID: optionalText,
+  GOOGLE_CLIENT_SECRET: optionalText,
 });
 
 export type Env = z.infer<typeof envSchema>;

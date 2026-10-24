@@ -28,7 +28,7 @@ function evaluatePassword(pw: string) {
   };
 }
 
-export function AuthPanel() {
+export function AuthPanel({ enabledProviders = [] }: { enabledProviders?: string[] }) {
   const [tab, setTab] = useState<Tab>("login");
   const toast = useToast();
 
@@ -55,7 +55,7 @@ export function AuthPanel() {
         </div>
       </div>
 
-      <ThirdPartySection toast={toast} />
+      <ThirdPartySection toast={toast} enabledProviders={enabledProviders} />
       <GuestEntry toast={toast} />
     </div>
   );
@@ -402,10 +402,22 @@ function RegisterForm({ toast }: { toast: ReturnType<typeof useToast> }) {
   );
 }
 
-/* --------------------------- 第三方登录占位 --------------------------- */
+/* --------------------------- 第三方登录 --------------------------- */
 
-function ThirdPartySection({ toast }: { toast: ReturnType<typeof useToast> }) {
-  const providers = ["GitHub", "Google", "微信"];
+/**
+ * 服务端下发可用 provider 列表（OAuth 双要素齐备才启用）；
+ * 未配置的显示「未开放」禁用态，配置后零改动自动启用。
+ */
+function ThirdPartySection({
+  toast,
+  enabledProviders,
+}: {
+  toast: ReturnType<typeof useToast>;
+  enabledProviders: string[];
+}) {
+  const providers = ["GitHub", "Google", "微信"] as const;
+  const apiByProvider: Record<string, string> = { GitHub: "github", Google: "google" };
+
   return (
     <div className="mt-5">
       <div className="flex items-center gap-3 my-4">
@@ -414,22 +426,32 @@ function ThirdPartySection({ toast }: { toast: ReturnType<typeof useToast> }) {
         <span className="flex-1 h-px" style={{ backgroundColor: "var(--color-border)" }} />
       </div>
       <div className="grid grid-cols-3 gap-2">
-        {providers.map((p) => (
-          <button
-            key={p}
-            type="button"
-            className="btn btn-outline relative"
-            onClick={() => toast.info(`「${p} 登录」正在接入中，敬请期待`)}
-          >
-            {p}
-            <span
-              className="absolute -top-2 -right-1 text-[10px] px-1 rounded-full"
-              style={{ backgroundColor: "var(--color-warning)", color: "#fff" }}
+        {providers.map((p) => {
+          const enabled = enabledProviders.includes(apiByProvider[p] ?? "");
+          if (enabled) {
+            return (
+              <a key={p} href={`/api/auth/oauth/${apiByProvider[p]}`} className="btn btn-outline">
+                {p}
+              </a>
+            );
+          }
+          return (
+            <button
+              key={p}
+              type="button"
+              className="btn btn-outline relative"
+              onClick={() => toast.info(`「${p} 登录」暂未开放，可使用邮箱注册`)}
             >
-              即将支持
-            </span>
-          </button>
-        ))}
+              {p}
+              <span
+                className="absolute -top-2 -right-1 text-[10px] px-1 rounded-full"
+                style={{ backgroundColor: "var(--color-text-muted)", color: "#fff" }}
+              >
+                未开放
+              </span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
