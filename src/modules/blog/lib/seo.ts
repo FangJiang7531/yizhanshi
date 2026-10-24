@@ -125,7 +125,7 @@ export function buildRobotsRules(siteUrl: string): MetadataRoute.Robots {
         userAgent: "*",
         allow: "/",
         disallow: [
-          "/blog/me",
+          "/space",
           "/blog/new",
           "/blog/*/edit",
           "/blog/moderation",

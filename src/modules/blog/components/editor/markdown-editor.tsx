@@ -176,6 +176,8 @@ export type MarkdownEditorHandle = {
   insertText: (text: string) => void;
   wrapSelection: (marker: string, endMarker?: string) => void;
   insertLink: () => void;
+  /** 插入外链图片（远程 URL，自动带 [外链] 标注提示读者） */
+  insertExternalImage: () => void;
   toggleLinePrefix: (prefix: string, strip?: RegExp) => void;
   focus: () => void;
   /** 当前文档（绕过 React state 拿最新值） */
@@ -375,6 +377,20 @@ export function MarkdownEditor({
       insertLink() {
         const view = getView();
         if (view) insertLinkInView(view);
+      },
+      insertExternalImage() {
+        const view = getView();
+        if (!view) return;
+        const { from, to } = view.state.selection.main;
+        const selected = view.state.sliceDoc(from, to);
+        const alt = selected || "外链图片";
+        const insert = `![${alt}](url)`;
+        const urlStart = from + alt.length + 4; // ![alt](
+        view.dispatch({
+          changes: { from, to, insert },
+          selection: { anchor: urlStart, head: urlStart + 3 },
+        });
+        view.focus();
       },
       toggleLinePrefix(prefix: string, strip?: RegExp) {
         const view = getView();

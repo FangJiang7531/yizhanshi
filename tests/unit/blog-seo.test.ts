@@ -158,7 +158,7 @@ describe("buildRobotsRules（PRD §5.9 的禁爬清单逐项断言）", () => {
       userAgent: "*",
       allow: "/",
       disallow: [
-        "/blog/me",
+        "/space",
         "/blog/new",
         "/blog/*/edit",
         "/blog/moderation",

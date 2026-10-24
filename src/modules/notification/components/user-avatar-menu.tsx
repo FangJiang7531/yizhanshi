@@ -130,7 +130,7 @@ export function UserAvatarMenu({
             <MenuItem
               icon={UserRound}
               label="我的空间"
-              onClick={() => router.push("/blog/me")}
+              onClick={() => router.push("/space")}
             />
           )}
         </span>

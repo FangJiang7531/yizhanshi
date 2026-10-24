@@ -19,6 +19,7 @@ import { logger } from "@/lib/logger";
 
 const updateProfileSchema = z.object({
   displayName: z.string().trim().min(1, "请输入昵称").max(30, "昵称最多 30 字"),
+  bio: z.string().trim().max(200, "简介最多 200 字").optional(),
 });
 
 export async function updateProfileAction(
@@ -29,12 +30,82 @@ export async function updateProfileAction(
     const data = updateProfileSchema.parse(raw);
     await prisma.user.update({
       where: { id: user.id },
-      data: { displayName: data.displayName },
+      data: {
+        displayName: data.displayName,
+        ...(data.bio !== undefined ? { bio: data.bio || null } : {}),
+      },
     });
     revalidatePath("/", "layout");
     return ok({ displayName: data.displayName });
   } catch (err) {
     logger.warn({ module: "profile", err: (err as Error).message }, "updateProfileAction");
+    return fail(err);
+  }
+}
+
+// ---------- 我的空间封面 ----------
+
+const COVER_MAX_BYTES = 5 * 1024 * 1024; // 5MB
+const COVER_TYPES: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+};
+
+export async function uploadCoverAction(
+  formData: FormData,
+): Promise<ActionResult<{ coverUrl: string }>> {
+  try {
+    const user = await requireNonGuest();
+    const file = formData.get("file");
+    if (!(file instanceof File)) {
+      return fail(new ValidationError({ file: ["请选择图片文件"] }));
+    }
+    const ext = COVER_TYPES[file.type];
+    if (!ext) {
+      return fail(new ValidationError({ file: ["仅支持 PNG / JPG / WebP 格式"] }));
+    }
+    if (file.size > COVER_MAX_BYTES) {
+      return fail(new ValidationError({ file: ["封面图不能超过 5MB"] }));
+    }
+    if (file.size === 0) {
+      return fail(new ValidationError({ file: ["图片内容为空"] }));
+    }
+
+    const bytes = Buffer.from(await file.arrayBuffer());
+    const key = `covers/${user.id}.${ext}`;
+    await storage.put(key, bytes);
+    const coverUrl = `/api/files/${key}?v=${Date.now()}`;
+    await prisma.user.update({ where: { id: user.id }, data: { coverImage: coverUrl } });
+
+    revalidatePath("/space");
+    return ok({ coverUrl });
+  } catch (err) {
+    logger.warn({ module: "profile", err: (err as Error).message }, "cover uploaded");
+    return fail(err);
+  }
+}
+
+export async function removeCoverAction(): Promise<ActionResult<{ removed: true }>> {
+  try {
+    const user = await requireNonGuest();
+    const current = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { coverImage: true },
+    });
+    if (current?.coverImage) {
+      const marker = "/api/files/";
+      const idx = current.coverImage.indexOf(marker);
+      if (idx >= 0) {
+        const key = current.coverImage.slice(idx + marker.length).split("?")[0];
+        if (key) await storage.delete(key).catch(() => undefined);
+      }
+    }
+    await prisma.user.update({ where: { id: user.id }, data: { coverImage: null } });
+    revalidatePath("/space");
+    return ok({ removed: true as const });
+  } catch (err) {
+    logger.warn({ module: "profile", err: (err as Error).message }, "removeCoverAction");
     return fail(err);
   }
 }

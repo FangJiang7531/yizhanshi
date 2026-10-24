@@ -36,6 +36,7 @@ export function createFollowService(db: PrismaClient = defaultPrisma) {
         targetUserId: target.id,
         actorId: userId,
         actorName: me?.displayName ?? me?.username ?? "有人",
+        actorUsername: me?.username ?? "",
       });
       return { following: true };
     },

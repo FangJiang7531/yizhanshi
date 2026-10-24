@@ -106,27 +106,37 @@ export function createNotificationService(db: PrismaClient = defaultPrisma) {
       });
     },
 
-    /** 被关注 */
-    async notifyFollowed(params: { targetUserId: string; actorId: string; actorName: string }) {
+    /** 被关注（link 必须用 username——/blog/u/ 路由参数是用户名，displayName 会导致 404） */
+    async notifyFollowed(params: {
+      targetUserId: string;
+      actorId: string;
+      actorName: string;
+      actorUsername: string;
+    }) {
       if (params.targetUserId === params.actorId) return;
       await safeNotify({
         userId: params.targetUserId,
         actorId: params.actorId,
         type: "FOLLOW",
         title: `${params.actorName} 关注了你`,
-        link: `/blog/u/${params.actorName}`,
+        link: `/blog/u/${encodeURIComponent(params.actorUsername)}`,
       });
     },
 
-    /** 收到私聊消息 */
-    async notifyMessage(params: { recipientId: string; senderId: string; senderName: string }) {
+    /** 收到私聊消息（link 用 username） */
+    async notifyMessage(params: {
+      recipientId: string;
+      senderId: string;
+      senderName: string;
+      senderUsername: string;
+    }) {
       if (params.recipientId === params.senderId) return;
       await safeNotify({
         userId: params.recipientId,
         actorId: params.senderId,
         type: "MESSAGE",
         title: `${params.senderName} 给你发来消息`,
-        link: `/messages?with=${params.senderName}`,
+        link: `/messages?with=${encodeURIComponent(params.senderUsername)}`,
       });
     },
 

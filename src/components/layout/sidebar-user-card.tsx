@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LogOut, Settings, Sparkles, User as UserIcon } from "lucide-react";
+import { LayoutDashboard, LogOut, Settings, Sparkles, User as UserIcon } from "lucide-react";
 import { logoutAction } from "@/modules/auth/actions/auth-actions";
 import { useToast } from "@/components/feedback/toast";
 import { GuestPromptDialog } from "@/components/feedback/guest-prompt-dialog";
@@ -117,6 +117,7 @@ export function SidebarUserCard({
             </p>
           </div>
           <div className="my-1 h-px" style={{ backgroundColor: "color-mix(in srgb, var(--color-border) 50%, transparent)" }} />
+          <MenuItem icon={<LayoutDashboard size={15} />} label="我的空间" onClick={() => go("/space")} />
           <MenuItem icon={<UserIcon size={15} />} label="个人资料" onClick={() => go("/settings/profile")} />
           <MenuItem icon={<Settings size={15} />} label="设置" onClick={() => go("/settings")} />
           <MenuItem

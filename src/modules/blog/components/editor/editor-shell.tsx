@@ -275,7 +275,7 @@ export function EditorShell({ post, initialPreview = false }: { post: PostEditDT
         setPublished(true);
         if (res.data.status === "REVIEW") {
           toast("success", "内容已提交审核，通过后自动发布");
-          router.push("/blog/me");
+          router.push("/space");
         } else {
           toast("success", "发布成功");
           router.push(`/blog/p/${res.data.slug}`);
@@ -408,7 +408,7 @@ export function EditorShell({ post, initialPreview = false }: { post: PostEditDT
       {/* 顶栏 */}
       <div className="flex h-12 shrink-0 items-center gap-2 border-b px-3" style={{ borderColor: "var(--color-border)" }}>
         <Link
-          href="/blog/me"
+          href="/space"
           className="icon-btn"
           title="返回我的文章"
           onClick={() => {

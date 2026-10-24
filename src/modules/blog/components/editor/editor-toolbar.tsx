@@ -5,6 +5,7 @@ import {
   Bold,
   Code,
   Database,
+  ExternalLink,
   Heading2,
   Heading3,
   Image,
@@ -19,11 +20,15 @@ import {
   Table,
 } from "lucide-react";
 import type { MarkdownEditorHandle } from "./markdown-editor";
+import { EditorTypographyBar } from "./editor-typography";
 
 /**
  * 编辑器工具栏（PRD §5.2.2 工具栏）。
  * 纯展示 + 命令转发：所有编辑动作经 MarkdownEditorHandle 落入 CodeMirror 事务，
  * 不经过 React state（保持撤销栈完整）。
+ *
+ * 2026-10 增强：图片按钮支持 GIF（上传管线白名单已含 image/gif）；
+ * 新增「外链图片」（远程图片以 [外链] 标注插入）；右侧 Office 式字体/字号设置。
  */
 
 type ToolButton = {
@@ -52,7 +57,13 @@ const GROUPS: ToolButton[][] = [
   ],
   [
     { key: "link", label: "链接 (Ctrl+K)", icon: Link, run: (e) => e.insertLink() },
-    { key: "image", label: "图片", icon: Image, run: () => undefined },
+    { key: "image", label: "图片（支持 GIF 动图，≤5MB）", icon: Image, run: () => undefined },
+    {
+      key: "external-image",
+      label: "外链图片（远程图片，自动标注）",
+      icon: ExternalLink,
+      run: (e) => e.insertExternalImage(),
+    },
   ],
   [
     {
@@ -137,6 +148,11 @@ export function EditorToolbar({
         <Database size={15} strokeWidth={1.8} />
         <span className="text-xs">数据卡片</span>
       </button>
+
+      {/* Office 式排版设置（字体/字号，作用于编辑与预览显示） */}
+      <span className="ml-auto pl-2">
+        <EditorTypographyBar targetSelector=".cm-content, .blog-prose" />
+      </span>
     </div>
   );
 }

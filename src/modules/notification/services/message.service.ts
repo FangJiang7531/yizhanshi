@@ -209,6 +209,7 @@ export function createMessageService(db: PrismaClient = defaultPrisma) {
         recipientId: peer.id,
         senderId: userId,
         senderName: me?.displayName ?? me?.username ?? "有人",
+        senderUsername: me?.username ?? "",
       });
 
       return {
@@ -250,6 +251,7 @@ export function createMessageService(db: PrismaClient = defaultPrisma) {
         recipientId: peer.id,
         senderId: userId,
         senderName: me?.displayName ?? me?.username ?? "有人",
+        senderUsername: me?.username ?? "",
       });
 
       return {

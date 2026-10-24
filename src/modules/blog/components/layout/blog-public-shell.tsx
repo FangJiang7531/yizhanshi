@@ -133,7 +133,7 @@ function AccountArea({ identity }: { identity: Identity | undefined }) {
 
   if (identity === null) {
     return (
-      <Link href="/login?next=/blog/me" className="btn btn-outline btn-sm">
+      <Link href="/login?next=/space" className="btn btn-outline btn-sm">
         登录
       </Link>
     );
@@ -141,9 +141,9 @@ function AccountArea({ identity }: { identity: Identity | undefined }) {
 
   return (
     <>
-      <Link href="/blog/me" className="btn btn-ghost btn-sm !px-2" aria-label="我的文章" title="我的文章">
+      <Link href="/space" className="btn btn-ghost btn-sm !px-2" aria-label="我的空间" title="我的空间">
         <LayoutList size={16} aria-hidden />
-        <span className="hidden sm:inline">我的文章</span>
+        <span className="hidden sm:inline">我的空间</span>
       </Link>
       <Link href="/blog/new" className="btn btn-primary btn-sm" aria-label={identity.isGuest ? "登录后写作" : "写文章"}>
         <PenLine size={15} aria-hidden />

@@ -47,7 +47,7 @@ function revalidatePublicSurfaces(username: string, ...slugs: (string | null | u
 }
 
 function revalidateMine() {
-  revalidatePath("/blog/me");
+  revalidatePath("/space");
 }
 
 export async function listMineAction(raw: unknown): Promise<ActionResult<{ items: PostListItemDTO[]; nextCursor: string | null }>> {
@@ -99,7 +99,7 @@ export async function saveDraftAction(raw: unknown): Promise<ActionResult<{ post
     const data = saveDraftSchema.parse(raw);
     const service = createPostService();
     const result = await service.saveDraft(user.id, data);
-    // 草稿不公开，无需失效公开面；但 /blog/me 的统计与列表要更新
+    // 草稿不公开，无需失效公开面；但 /space 的统计与列表要更新
     revalidateMine();
     return ok(result);
   } catch (err) {

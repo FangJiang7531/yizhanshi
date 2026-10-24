@@ -62,8 +62,8 @@ export function AuthorCard({
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="truncate text-lg font-semibold">{name}</h1>
           {isOwner && (
-            <Link href="/blog/me" className="chip" style={{ fontSize: 11, padding: "2px 8px" }}>
-              我的文章
+            <Link href="/space" className="chip" style={{ fontSize: 11, padding: "2px 8px" }}>
+              我的空间
             </Link>
           )}
         </div>

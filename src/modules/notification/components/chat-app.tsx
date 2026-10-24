@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, ImageIcon, SendHorizonal } from "lucide-react";
 import { useToast } from "@/components/feedback/toast";
 import {
@@ -17,14 +17,18 @@ import type { ConversationDTO, MessageDTO } from "../services/message.service";
  * - 桌面端：左会话列表 + 右聊天窗格；
  * - 移动端：列表与窗格切换（进入窗格显示返回）；
  * - 支持 文字 + 图片（JPEG/PNG/WebP/GIF，≤5MB，服务端违禁词/规格校验）；
- * - 8s 轮询接收新消息（社交私信对实时性要求低于评论流，轮询够用且更省）。
+ * - 轮询：会话列表 12s / 活跃会话新消息 5s。
+ *
+ * 注意：不使用 useSearchParams（避免额外的 Suspense 边界），
+ * ?with= 参数直接从 window.location 读取（仅初始化一次）。
  */
 export function ChatApp() {
   const toast = useToast();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [conversations, setConversations] = useState<ConversationDTO[]>([]);
-  const [activePeer, setActivePeer] = useState<string | null>(searchParams.get("with"));
+  const [activePeer, setActivePeer] = useState<string | null>(() =>
+    typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("with") : null,
+  );
   const [peerProfile, setPeerProfile] = useState<{ username: string; displayName: string | null; avatarUrl: string | null } | null>(null);
   const [messages, setMessages] = useState<MessageDTO[]>([]);
   const [draft, setDraft] = useState("");

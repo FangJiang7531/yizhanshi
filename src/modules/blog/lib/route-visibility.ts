@@ -7,7 +7,7 @@
  *
  * 判定与 `(public)` 路由组必须保持一致：
  * - 放行（无需登录）：消费侧页面 + RSS + 凭 token 的草稿预览
- * - 拦截（需登录）：/blog/me、/blog/new、/blog/[id]/edit、/blog/moderation
+ * - 拦截（需登录）：/space、/blog/new、/blog/[id]/edit、/blog/moderation
  */
 
 /** 精确匹配的公开路径 */

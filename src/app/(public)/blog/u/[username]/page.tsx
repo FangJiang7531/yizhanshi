@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import type { ComponentProps } from "react";
 import { notFound } from "next/navigation";
 import { createPostService } from "@/modules/blog/services/post.service";
+import { createFollowService } from "@/modules/notification/services/follow.service";
 import { prisma } from "@/lib/db";
-import { AuthorCard } from "@/modules/blog/components/author-card";
+import { SpaceHeader } from "@/modules/blog/components/space/space-header";
 import { PostList } from "@/modules/blog/components/post-card";
 import { LoadMorePosts } from "@/modules/blog/components/load-more-posts";
 import { EmptyState } from "@/components/feedback/empty-state";
@@ -17,8 +19,8 @@ import { env } from "@/config/env";
  * 这一点由仓储层的 `PUBLIC_LISTABLE`（status/auditStatus/visibility/deletedAt 四条件）
  * 保证，页面本身不做二次过滤 —— 过滤散落在页面里就会有人漏写。
  *
- * 同样不读 Session：作者本人看到的是"公开视图 + 客户端补出来的『我的文章』入口"，
- * 服务端输出与访客完全一致（见 blog-public-shell.tsx 的说明）。
+ * 2026-10：页头升级为「空间」样式（封面 + 头像 + 关注/粉丝/动态），
+ * 与登录用户的 /space 同构；头像弹出菜单提供 资料/关注/私聊/举报。
  */
 export const revalidate = 1800;
 export const dynamicParams = true;
@@ -45,14 +47,14 @@ export async function generateMetadata({
 
   const name = user.displayName ?? user.username;
   return {
-    title: `${name} 的文章`,
+    title: `${name} 的空间`,
     description: truncate(`${name} 在个人数字工作台发布的文章列表。`, 160),
     alternates: {
       canonical: `${env.APP_URL}/blog/u/${user.username}`,
       // 作者级 RSS 自动发现（PRD §5.8）
       types: { "application/rss+xml": `${env.APP_URL}/blog/u/${user.username}/rss.xml` },
     },
-    openGraph: { type: "profile", title: `${name} 的文章` },
+    openGraph: { type: "profile", title: `${name} 的空间` },
   };
 }
 
@@ -61,15 +63,37 @@ export default async function AuthorPage({ params }: { params: Promise<{ usernam
 
   const user = await prisma.user.findUnique({
     where: { username },
-    select: { id: true, username: true, displayName: true, avatarUrl: true },
+    select: {
+      id: true,
+      username: true,
+      displayName: true,
+      avatarUrl: true,
+      bio: true,
+      coverImage: true,
+    },
   });
   if (!user) notFound();
 
-  const { items, nextCursor, stats } = await postService.listByAuthor(username, { take: TAKE });
+  const [authorData, social] = await Promise.all([
+    postService.listByAuthor(username, { take: TAKE }),
+    createFollowService().statsOf(username),
+  ]);
+  const { items, nextCursor } = authorData;
 
   return (
     <div className="space-y-6">
-      <AuthorCard author={user} stats={stats} />
+      {/* 空间头部：封面 + 头像 + 关注/粉丝/动态（isMe=false 时全部编辑入口隐藏） */}
+      <SpaceHeader
+        {...({
+          username: user.username,
+          displayName: user.displayName ?? user.username,
+          bio: user.bio,
+          avatarUrl: user.avatarUrl,
+          coverImage: user.coverImage,
+          stats: social,
+          isMe: false,
+        } as ComponentProps<typeof SpaceHeader>)}
+      />
 
       {items.length === 0 ? (
         <EmptyState
@@ -84,13 +108,13 @@ export default async function AuthorPage({ params }: { params: Promise<{ usernam
         </>
       )}
 
-      {/* 结构化数据（PRD §5.9）：作者页用 Person；bio 字段本期无数据来源（见 AuthorCard 注），留待扩展 */}
+      {/* 结构化数据（PRD §5.9）：作者页用 Person */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
           __html: safeJsonLd(
             buildPersonJsonLd(
-              { username: user.username, displayName: user.displayName, bio: null },
+              { username: user.username, displayName: user.displayName, bio: user.bio },
               env.APP_URL,
             ),
           ),

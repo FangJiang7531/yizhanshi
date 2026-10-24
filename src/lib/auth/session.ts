@@ -30,6 +30,10 @@ export type SessionUser = {
   role: Role;
   timezone: string;
   avatarUrl: string | null;
+  /** 个人简介（我的空间展示） */
+  bio: string | null;
+  /** 我的空间封面图 */
+  coverImage: string | null;
 };
 
 export type GuestPrincipal = {
@@ -125,6 +129,8 @@ async function loadPrincipal(): Promise<Principal | null> {
           role: u.role,
           timezone: u.timezone,
           avatarUrl: u.avatarUrl,
+          bio: u.bio,
+          coverImage: u.coverImage,
         },
       };
     }

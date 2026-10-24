@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { Suspense } from "react";
 import { getPrincipal } from "@/lib/auth/session";
 import { ChatApp } from "@/modules/notification/components/chat-app";
 
@@ -28,9 +27,7 @@ export default async function MessagesPage() {
           与其他用户一对一交流，支持文字与图片。
         </p>
       </header>
-      <Suspense fallback={<div className="skeleton h-[60vh]" />}>
-        <ChatApp />
-      </Suspense>
+      <ChatApp />
     </div>
   );
 }

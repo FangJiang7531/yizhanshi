@@ -112,6 +112,26 @@
   cursor: zoom-in;
 }
 
+/* 外链图片标注：右上角「外链」角标（data-external 由渲染管线注入，源站图片无角标） */
+.blog-prose img[data-external="true"] {
+  position: relative;
+}
+.blog-prose img[data-external="true"]::after {
+  content: "外链";
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 11px;
+  line-height: 1.4;
+  background-color: color-mix(in srgb, var(--color-bg-base) 72%, transparent);
+  backdrop-filter: blur(6px);
+  color: var(--color-text-secondary);
+  pointer-events: none;
+}
+
 /* 行内代码 */
 .blog-prose :not(pre) > code {
   font-family: var(--font-mono);

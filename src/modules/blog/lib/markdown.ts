@@ -141,6 +141,11 @@ function makeEnhancePlugin(toc: TocItem[]): Plugin {
 
         if (node.tagName === "img") {
           node.properties.loading = "lazy";
+          // 外链图片（非本站存储）加 data 属性，样式层据此标注「外链」角标
+          const src = String(node.properties.src ?? "");
+          if (/^https?:\/\//i.test(src) && !src.includes("/api/files/")) {
+            node.properties.dataExternal = "true";
+          }
         }
 
         if (node.tagName === "pre") {
