@@ -370,12 +370,13 @@ model BlogPost {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
-  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  comments Comment[]
-  tags     PostTag[]
-  likes    PostLike[]
-  reposts  PostRepost[]
-  views    PostView[]
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comments  Comment[]
+  tags      PostTag[]
+  likes     PostLike[]
+  reposts   PostRepost[]
+  views     PostView[]
+  bookmarks Bookmark[]   @relation("BookmarkPost")
 
   @@index([userId, status, deletedAt])
   @@index([status, visibility, publishedAt(sort: Desc)])
@@ -643,7 +644,10 @@ model Bookmark {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// 站内文章收藏（kind=post），文章删除置空
+  post   BlogPost? @relation("BookmarkPost", fields: [postId], references: [id], onDelete: SetNull)
+  postId String?
 
   @@index([userId, deletedAt, createdAt(sort: Desc)])
   @@index([userId, folder])

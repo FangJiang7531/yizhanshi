@@ -83,7 +83,30 @@ export function InteractionBar({
   const [pop, setPop] = useState(false);
   const [repostOpen, setRepostOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [bookmarked, setBookmarked] = useState(false);
   const viewRecordedRef = useRef(false);
+
+  /** 收藏文章到书签（幂等：重复收藏返回已存在记录并提示） */
+  async function toggleBookmark() {
+    if (bookmarked) {
+      toast.info("已收藏过这篇文章，可在「书签」板块管理");
+      return;
+    }
+    const { createBookmarkAction } = await import("@/modules/bookmarks/actions/bookmark-actions");
+    const res = await createBookmarkAction({
+      url: `${window.location.origin}/blog/p/${slug}`,
+      title,
+      postId,
+      kind: "post",
+      folder: "文章收藏",
+    });
+    if (res.success) {
+      setBookmarked(true);
+      toast("success", "已收藏到书签（文章收藏）");
+    } else {
+      toast("error", res.error.message);
+    }
+  }
 
   // 挂载：身份查询 + 浏览计数（一次性）
   useEffect(() => {
@@ -198,6 +221,17 @@ export function InteractionBar({
         <CountUp value={c.commentCount} />
       </button>
 
+      <button
+        type="button"
+        className="interaction-btn"
+        onClick={() => void toggleBookmark()}
+        aria-pressed={bookmarked}
+        aria-label={bookmarked ? "已收藏到书签" : "收藏到书签"}
+        title={bookmarked ? "已收藏，到「书签」板块管理" : "收藏到书签"}
+      >
+        <BookmarkIcon filled={bookmarked} />
+      </button>
+
       <span className="inline-flex items-center gap-0.5">
         <ShareMenu slug={slug} title={title} onShared={onMenuShared} />
         <span className="tabular-nums text-xs" style={{ color: "var(--color-text-muted)" }}>
@@ -219,5 +253,14 @@ export function InteractionBar({
         onDone={onReposted}
       />
     </div>
+  );
+}
+
+/** 书签形图标（filled 表已收藏） */
+function BookmarkIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16Z" />
+    </svg>
   );
 }
