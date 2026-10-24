@@ -1,4 +1,5 @@
 export type ThemeName =
+  | "bluelight"
   | "aurora"
   | "classic-paper"
   | "tech"
@@ -10,6 +11,7 @@ export type ThemeName =
 export type ColorMode = "light" | "dark" | "system";
 
 export const THEMES: { id: ThemeName; name: string; swatch: { bg: string; fg: string; accent: string } }[] = [
+  { id: "bluelight", name: "蓝光", swatch: { bg: "#0A1330", fg: "#EAF0FF", accent: "#4F7CFF" } },
   { id: "aurora", name: "极光蓝紫", swatch: { bg: "#F3F5FF", fg: "#1B2140", accent: "#6D5CFF" } },
   { id: "classic-paper", name: "米黄书页", swatch: { bg: "#FAF6ED", fg: "#3A3226", accent: "#8B6F47" } },
   { id: "tech", name: "科技感", swatch: { bg: "#0A0E1A", fg: "#E6F1FF", accent: "#00D4FF" } },

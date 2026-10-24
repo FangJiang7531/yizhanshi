@@ -2,19 +2,20 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Flag, MessageCircle, UserRound, UserPlus, UserCheck } from "lucide-react";
+import { Download, Flag, ImageOff, MessageCircle, UserRound, UserPlus, UserCheck, X } from "lucide-react";
 import { useToast } from "@/components/feedback/toast";
 import { isFollowingAction, toggleFollowAction } from "../actions/follow.actions";
 import { reportUserAction } from "../actions/notification.actions";
 
 /**
- * 用户头像弹出菜单（评论区 / 文章作者卡 / 我的空间通用）。
- * 功能：查看资料、关注/已关注、私聊、举报。
+ * 用户头像弹出菜单（评论区 / 文章作者卡 / 空间通用）。
+ * 功能：查看头像（可下载原图）、关注/已关注、私聊、举报。
  * children 是触发器（头像本身），菜单锚定其下方。
  */
 export function UserAvatarMenu({
   username,
   displayName,
+  avatarUrl,
   isMe,
   children,
   align = "left",
@@ -31,6 +32,7 @@ export function UserAvatarMenu({
   const [open, setOpen] = useState(false);
   const [following, setFollowing] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [avatarViewOpen, setAvatarViewOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const rootRef = useRef<HTMLSpanElement>(null);
@@ -60,6 +62,8 @@ export function UserAvatarMenu({
     if (res.success) {
       setFollowing(res.data.following);
       toast("success", res.data.following ? `已关注 ${displayName}` : `已取消关注`);
+      // 刷新当前页：对方粉丝数 / 自己关注数立即生效
+      router.refresh();
     } else {
       toast("error", res.error.message);
       if (res.error.code === "UNAUTHORIZED" || res.error.code === "FORBIDDEN") router.push("/login");
@@ -110,7 +114,14 @@ export function UserAvatarMenu({
           }}
           role="menu"
         >
-          <MenuItem icon={UserRound} label="查看资料" onClick={() => router.push(`/blog/u/${username}`)} />
+          <MenuItem
+            icon={UserRound}
+            label="查看头像"
+            onClick={() => {
+              setAvatarViewOpen(true);
+              setOpen(false);
+            }}
+          />
           {!isMe && (
             <>
               <MenuItem
@@ -133,6 +144,58 @@ export function UserAvatarMenu({
               onClick={() => router.push("/space")}
             />
           )}
+        </span>
+      )}
+
+      {/* 头像查看器：大图预览 + 下载原图 */}
+      {avatarViewOpen && (
+        <span
+          className="fixed inset-0 z-[70] flex items-center justify-center p-4"
+          style={{ backgroundColor: "rgba(0,0,0,0.72)" }}
+          onClick={() => setAvatarViewOpen(false)}
+          role="dialog"
+          aria-label={`${displayName} 的头像`}
+        >
+          <span className="flex max-h-full flex-col items-center gap-3" onClick={(e) => e.stopPropagation()}>
+            {avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- 头像走本地 API
+              <img
+                src={avatarUrl}
+                alt={`${displayName} 的头像`}
+                className="max-h-[60vh] max-w-full rounded-full object-cover"
+                style={{ boxShadow: "0 0 48px rgba(125,140,255,0.35)" }}
+              />
+            ) : (
+              <span className="flex h-40 w-40 items-center justify-center rounded-full text-3xl font-bold" style={{ background: "linear-gradient(135deg, #5152e8, #6d5cff)", color: "#fff" }}>
+                {displayName.slice(0, 1).toUpperCase()}
+              </span>
+            )}
+            <span className="flex items-center gap-2">
+              <span className="text-sm text-white/90">{displayName} · @{username}</span>
+            </span>
+            <span className="flex items-center gap-2">
+              {avatarUrl ? (
+                <a
+                  href={avatarUrl}
+                  download={`${username}-头像.png`}
+                  className="btn btn-primary btn-sm"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Download size={14} aria-hidden />
+                  下载头像
+                </a>
+              ) : (
+                <span className="btn btn-outline btn-sm pointer-events-none opacity-60">
+                  <ImageOff size={14} aria-hidden />
+                  TA 还没有上传头像
+                </span>
+              )}
+              <button type="button" className="btn btn-outline btn-sm" style={{ color: "#fff", borderColor: "rgba(255,255,255,0.4)" }} onClick={() => setAvatarViewOpen(false)}>
+                <X size={14} aria-hidden />
+                关闭
+              </button>
+            </span>
+          </span>
         </span>
       )}
 

@@ -43,6 +43,97 @@
   --content-fade-height: 32px;
 }
 
+/* ---------- bluelight 蓝光（品牌波浪壁纸主题：PC/手机双端壁纸 + 全站玻璃拟态） ---------- */
+/* 明暗两档都基于壁纸（图底为深蓝），「浅色」= 白昼玻璃（更亮的半透明面板），「深色」= 夜间玻璃 */
+[data-theme="bluelight"][data-mode="light"] {
+  --color-bg-base: #0b1230;
+  --color-bg-surface: #16224d;
+  --color-bg-elevated: #1e2c5f;
+  --color-text-primary: #eef2ff;
+  --color-text-secondary: #c0cbee;
+  --color-text-muted: #8591c2;
+  --color-border: #31407d;
+  --color-primary: #4f7cff;
+  --color-primary-hover: #6b93ff;
+  --color-primary-fg: #ffffff;
+  --color-success: #2fd39a;
+  --color-warning: #ffc24d;
+  --color-danger: #ff7b85;
+  --color-info: #5eb0ff;
+  --color-accent: #38bdf8;
+  --shadow-sm: 0 1px 2px rgba(5, 10, 31, 0.35);
+  --shadow-md: 0 4px 14px rgba(5, 10, 31, 0.45);
+  --shadow-lg: 0 12px 34px rgba(5, 10, 31, 0.6);
+}
+
+[data-theme="bluelight"][data-mode="dark"] {
+  --color-bg-base: #050a1f;
+  --color-bg-surface: #0f183c;
+  --color-bg-elevated: #16224d;
+  --color-text-primary: #e6edff;
+  --color-text-secondary: #aab6e6;
+  --color-text-muted: #6f7db0;
+  --color-border: #263266;
+  --color-primary: #6d8dff;
+  --color-primary-hover: #8ba7ff;
+  --color-primary-fg: #061024;
+  --color-success: #34d399;
+  --color-warning: #fbbf24;
+  --color-danger: #ff7b85;
+  --color-info: #5eb0ff;
+  --color-accent: #22d3ee;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.55);
+  --shadow-lg: 0 12px 34px rgba(0, 0, 0, 0.65);
+}
+
+/* 壁纸底（PC 横版 / 手机竖屏竖版自适应），外壳透明让波浪透出 */
+[data-theme="bluelight"] body {
+  background-image: url("/wallpaper/wave-pc.jpg");
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+@media (orientation: portrait), (max-width: 767px) {
+  [data-theme="bluelight"] body {
+    background-image: url("/wallpaper/wave-mobile.jpg");
+  }
+}
+[data-theme="bluelight"] .platform-root {
+  background: transparent !important;
+}
+/* 侧边栏：深蓝玻璃（壁纸上仍可读） */
+[data-theme="bluelight"] aside {
+  background: linear-gradient(
+    to right,
+    color-mix(in srgb, #050a1f 72%, transparent) 0%,
+    color-mix(in srgb, #050a1f 64%, transparent) 78%,
+    color-mix(in srgb, #050a1f 44%, transparent) 100%
+  ) !important;
+  backdrop-filter: blur(18px) saturate(1.3);
+  -webkit-backdrop-filter: blur(18px) saturate(1.3);
+}
+/* 卡片与顶栏：玻璃拟态（浅色=更亮一档，深色=更深一档） */
+[data-theme="bluelight"][data-mode="light"] .card {
+  background-color: color-mix(in srgb, #1e2c5f 62%, transparent);
+  backdrop-filter: blur(14px) saturate(1.3);
+  -webkit-backdrop-filter: blur(14px) saturate(1.3);
+  border-color: color-mix(in srgb, #6d8dff 18%, transparent);
+}
+[data-theme="bluelight"][data-mode="dark"] .card {
+  background-color: color-mix(in srgb, #0f183c 68%, transparent);
+  backdrop-filter: blur(14px) saturate(1.25);
+  -webkit-backdrop-filter: blur(14px) saturate(1.25);
+  border-color: color-mix(in srgb, #6d8dff 14%, transparent);
+}
+[data-theme="bluelight"] header.sticky {
+  background-color: color-mix(in srgb, #050a1f 55%, transparent) !important;
+}
+[data-theme="bluelight"][data-mode="light"] header.sticky {
+  background-color: color-mix(in srgb, #0b1230 52%, transparent) !important;
+}
+
 /* ---------- aurora 极光蓝紫（默认主题，取自应用图标配色） ---------- */
 [data-theme="aurora"][data-mode="light"] {
   --color-bg-base: #f3f5ff;
@@ -423,6 +514,16 @@ body {
   line-height: 1.6;
   /* 主题/明暗切换时底色平滑过渡（View Transitions 不可用时也能柔和渐变） */
   transition: background-color 450ms var(--ease-out), color 450ms var(--ease-out);
+  /* 手机端修复「无尽下滑」：禁止滚动链 + 浏览器下拉刷新与自定义回弹打架 */
+  overscroll-behavior-y: contain;
+}
+
+/* 手机端 100dvh 视口（dvh 随地址栏收放自适应，100vh 在手机上恒大于可视区，
+   造成页面永远多出一截可滑区域——即「无尽下滑」的主要根因；不支持的旧浏览器回退 100vh） */
+.platform-root,
+.blog-public-root {
+  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 [data-theme="tech"][data-mode="dark"] body {

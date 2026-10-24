@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Camera, MessageCircle, Pencil, UserCheck, X } from "lucide-react";
+import { Camera, Download, MessageCircle, Pencil, UserCheck, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/feedback/toast";
 import {
@@ -57,6 +57,7 @@ export function SpaceHeader({
   const [followBusy, setFollowBusy] = useState(false);
   const [followList, setFollowList] = useState<{ kind: "following" | "followers"; items: FollowUser[] } | null>(null);
   const [listLoading, setListLoading] = useState(false);
+  const [coverViewOpen, setCoverViewOpen] = useState(false);
 
   // 他人空间：挂载时查询关注态
   useEffect(() => {
@@ -144,7 +145,9 @@ export function SpaceHeader({
     setFollowBusy(false);
     if (res.success) {
       setFollowing(res.data.following);
-      toast("success", res.data.following ? `已关注 ${displayName}` : "已取消关注");
+      toast("success", res.data.following ? `已关注 ${displayName}` : `已取消关注`);
+      // 刷新使对方粉丝数 / 我的关注数立即生效
+      router.refresh();
     } else {
       toast("error", res.error.message);
     }
@@ -169,9 +172,11 @@ export function SpaceHeader({
 
   return (
     <header className="relative rounded-[var(--radius-lg)]" style={{ backgroundColor: "var(--color-bg-surface)", border: "1px solid color-mix(in srgb, var(--color-border) 30%, transparent)" }}>
-      {/* 封面：有图挂图，无图用主题渐变；下拉时放大（手机端 overscroll 弹性） */}
+      {/* 封面：有图挂图，无图用主题渐变；点击查看大图并下载；下拉时放大（手机端 overscroll 弹性） */}
       <div
-        className="relative h-40 rounded-t-[var(--radius-lg)] sm:h-52"
+        className="relative h-40 cursor-zoom-in rounded-t-[var(--radius-lg)] sm:h-52"
+        title={cover ? "查看封面大图" : undefined}
+        onClick={() => cover && setCoverViewOpen(true)}
         style={{
           background: cover
             ? `url(${cover}) center/cover`
@@ -193,7 +198,7 @@ export function SpaceHeader({
                 e.target.value = "";
               }}
             />
-            <div className="absolute bottom-3 right-3 flex gap-2">
+            <div className="absolute bottom-3 right-3 flex gap-2" onClick={(e) => e.stopPropagation()}>
               <button
                 type="button"
                 className="glass-panel flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium"
@@ -363,6 +368,47 @@ export function SpaceHeader({
           )}
         </div>
       </div>
+
+      {/* 封面大图查看器（点击封面打开，可下载保存） */}
+      {coverViewOpen && cover && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center p-4"
+          style={{ backgroundColor: "rgba(0,0,0,0.78)" }}
+          onClick={() => setCoverViewOpen(false)}
+          role="dialog"
+          aria-label="封面大图"
+        >
+          <div className="flex max-h-full flex-col items-center gap-3" onClick={(e) => e.stopPropagation()}>
+            {/* eslint-disable-next-line @next/next/no-img-element -- 封面走本地 API */}
+            <img
+              src={cover}
+              alt="空间封面"
+              className="max-h-[70vh] max-w-full rounded-[var(--radius-lg)] object-contain"
+              style={{ boxShadow: "0 0 48px rgba(125,140,255,0.35)" }}
+            />
+            <div className="flex items-center gap-2">
+              <a
+                href={cover}
+                download={`${username}-封面.png`}
+                className="btn btn-primary btn-sm"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Download size={14} aria-hidden />
+                下载封面
+              </a>
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                style={{ color: "#fff", borderColor: "rgba(255,255,255,0.4)" }}
+                onClick={() => setCoverViewOpen(false)}
+              >
+                <X size={14} aria-hidden />
+                关闭
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 关注/粉丝列表弹窗（自己的空间点击数字查看） */}
       {followList && (

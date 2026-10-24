@@ -1,10 +1,13 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { requireNonGuest } from "@/lib/auth/guards";
 import { fail, ok, type ActionResult } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { createFollowService } from "../services/follow.service";
 import { followSchema } from "../schemas";
+
+/** 关注控制器 */
 
 export async function toggleFollowAction(
   raw: unknown,
@@ -13,7 +16,11 @@ export async function toggleFollowAction(
     const user = await requireNonGuest();
     const data = followSchema.parse(raw);
     const followService = createFollowService();
-    return ok(await followService.toggle(user.id, data.username));
+    const result = await followService.toggle(user.id, data.username);
+    // 双方空间页统计即时可见（对方粉丝数 / 我的关注数立即生效）
+    revalidatePath(`/blog/u/${data.username}`);
+    revalidatePath("/space");
+    return ok(result);
   } catch (err) {
     logger.warn({ module: "notification", err: (err as Error).message }, "toggleFollowAction");
     return fail(err);

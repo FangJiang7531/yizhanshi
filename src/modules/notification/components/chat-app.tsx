@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { ArrowLeft, ImageIcon, SendHorizonal } from "lucide-react";
 import { useToast } from "@/components/feedback/toast";
 import {
@@ -19,16 +19,16 @@ import type { ConversationDTO, MessageDTO } from "../services/message.service";
  * - 支持 文字 + 图片（JPEG/PNG/WebP/GIF，≤5MB，服务端违禁词/规格校验）；
  * - 轮询：会话列表 12s / 活跃会话新消息 5s。
  *
- * 注意：不使用 useSearchParams（避免额外的 Suspense 边界），
- * ?with= 参数直接从 window.location 读取（仅初始化一次）。
+ * ?with= 深链修复：不从 useState 初始化读 window.location（客户端导航时
+ * URL 尚未更新，读不到参数 → 只进列表不进会话）。改为监听 pathname 变化，
+ * 在导航完成后（effect 阶段 URL 已就绪）读取并切入对应对话。
  */
 export function ChatApp() {
   const toast = useToast();
   const router = useRouter();
+  const pathname = usePathname();
   const [conversations, setConversations] = useState<ConversationDTO[]>([]);
-  const [activePeer, setActivePeer] = useState<string | null>(() =>
-    typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("with") : null,
-  );
+  const [activePeer, setActivePeer] = useState<string | null>(null);
   const [peerProfile, setPeerProfile] = useState<{ username: string; displayName: string | null; avatarUrl: string | null } | null>(null);
   const [messages, setMessages] = useState<MessageDTO[]>([]);
   const [draft, setDraft] = useState("");
@@ -36,6 +36,24 @@ export function ChatApp() {
   const [loadingThread, setLoadingThread] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 深链 ?with=：挂载与每次路由到达本页时读取（此时 window.location 已更新）
+  useEffect(() => {
+    const withParam = new URLSearchParams(window.location.search).get("with");
+    if (withParam) {
+      setActivePeer((prev) => (prev === withParam ? prev : withParam));
+    }
+  }, [pathname]);
+
+  // 浏览器返回/前进时 query 变化也要响应
+  useEffect(() => {
+    const onPop = () => {
+      const withParam = new URLSearchParams(window.location.search).get("with");
+      setActivePeer(withParam);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
 
   const loadConversations = useCallback(async () => {
     const res = await listConversationsAction();

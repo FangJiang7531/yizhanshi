@@ -50,7 +50,7 @@ export function BlogPublicShell({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <div className="flex min-h-screen flex-col" id="rubber-band-root" style={{ backgroundColor: "var(--color-bg-base)" }}>
+    <div className="blog-public-root flex flex-col" id="rubber-band-root" style={{ backgroundColor: "var(--color-bg-base)" }}>
       <header className="glass-panel sticky top-0 z-30 border-x-0 border-t-0">
         <div className="mx-auto flex h-14 w-full max-w-[1080px] items-center gap-2 px-4 sm:px-6">
           {/* 左上角：导航抽屉（呼出平台全部板块）+ 移动端返回上级 */}

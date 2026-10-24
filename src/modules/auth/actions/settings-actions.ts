@@ -12,6 +12,7 @@ import { logger } from "@/lib/logger";
  *  Component 只允许传 Server Action，不能传内联闭包），因此签名必须与调用方约定一致。 */
 const updateAppearanceSchema = z.object({
   themeName: z.enum([
+    "bluelight",
     "aurora",
     "classic-paper",
     "tech",
