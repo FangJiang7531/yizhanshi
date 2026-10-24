@@ -52,7 +52,7 @@ export function PlatformShell({
   const contentMaxWidth = (mod && MODULE_WIDTH[mod.key]) ?? "var(--standard-width)";
 
   return (
-    <div className="flex min-h-screen" style={{ backgroundColor: "var(--color-bg-base)" }}>
+    <div className="platform-root flex min-h-screen" style={{ backgroundColor: "var(--color-bg-base)" }}>
       <Sidebar
         user={user}
         collapsed={collapsed}
