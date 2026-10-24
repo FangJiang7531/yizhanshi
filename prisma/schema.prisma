@@ -83,6 +83,23 @@ enum CommentStatus {
   DELETED
 }
 
+// ---------- 通知中心 / 社交（2026-10 版本）----------
+
+enum NotificationType {
+  /// 博客文章收到点赞
+  POST_LIKE
+  /// 文章收到评论
+  POST_COMMENT
+  /// 评论被回复
+  COMMENT_REPLY
+  /// 被关注
+  FOLLOW
+  /// 收到私聊消息
+  MESSAGE
+  /// 系统通知
+  SYSTEM
+}
+
 // ---------- 用户与认证 ----------
 
 model User {
@@ -95,6 +112,10 @@ model User {
   passwordHash    String?
   displayName     String?
   avatarUrl       String?
+  /// 个人简介（我的空间展示，≤200 字）
+  bio             String?    @db.VarChar(200)
+  /// 我的空间封面图 URL
+  coverImage      String?
   role            Role       @default(USER)
   emailVerifiedAt DateTime?
   /// IANA 时区名（如 Asia/Shanghai）
@@ -104,18 +125,27 @@ model User {
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
-  sessions     Session[]
-  setting      UserSetting?
-  tasks        Task[]
-  tags         Tag[]
-  habits       Habit[]
-  habitLogs    HabitLog[]
-  authAccounts AuthAccount[]
-  posts        BlogPost[]
-  comments     Comment[]
-  postLikes    PostLike[]
-  reposts      PostRepost[]
-  commentLikes CommentLike[]
+  sessions               Session[]
+  setting                UserSetting?
+  tasks                  Task[]
+  tags                   Tag[]
+  habits                 Habit[]
+  habitLogs              HabitLog[]
+  authAccounts           AuthAccount[]
+  posts                  BlogPost[]
+  comments               Comment[]
+  postLikes              PostLike[]
+  reposts                PostRepost[]
+  commentLikes           CommentLike[]
+  notifications          Notification[]  @relation("notificationRecipient")
+  triggeredNotifies      Notification[]  @relation("notificationActor")
+  followerLinks          Follow[]        @relation("followFollower")
+  followingLinks         Follow[]        @relation("followFollowing")
+  conversationsInitiated Conversation[]  @relation("conversationInitiator")
+  conversationsJoined    Conversation[]  @relation("conversationJoined")
+  directMessages         DirectMessage[]
+  shortLinks             ShortLink[]
+  bookmarks              Bookmark[]
 }
 
 model Session {
@@ -468,46 +498,156 @@ model AuditRecord {
   @@index([createdAt])
 }
 
-/// 预留：URL 短链（阶段三）
-model ShortLink {
-  id         String    @id @default(cuid())
-  userId     String
-  slug       String    @unique
-  targetUrl  String
-  expiresAt  DateTime?
-  clickCount Int       @default(0)
-  isActive   Boolean   @default(true)
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+// ---------- 通知中心（2026-10）----------
+
+/// 站内通知：博客互动（点赞/评论/回复）、关注、私聊、系统广播。
+/// link 携带跳转锚点（如 /blog/p/xxx#comment-yyy），前端跳转后高亮对应评论。
+model Notification {
+  id        String           @id @default(cuid())
+  /// 接收者
+  userId    String
+  /// 触发者（系统通知为 null）
+  actorId   String?
+  type      NotificationType
+  title     String           @db.VarChar(200)
+  content   String?          @db.VarChar(500)
+  /// 站内跳转链接（含锚点）
+  link      String?          @db.VarChar(500)
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  user  User  @relation("notificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  actor User? @relation("notificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([userId, readAt, createdAt(sort: Desc)])
+  @@index([userId, type])
 }
 
-/// 预留：短链访问明细（阶段三）
+/// 关注关系：followerId 关注 followingId
+model Follow {
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower  User @relation("followFollower", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("followFollowing", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followingId])
+  @@index([followingId, createdAt(sort: Desc)])
+}
+
+/// 私聊会话：两个用户一对一。userAId 为发起者（保证 userAId < userBId 字典序可另做约束，
+/// 这里用显式 unique([userAId, userBId]) + 查询时双向匹配保证幂等）
+model Conversation {
+  id            String   @id @default(cuid())
+  userAId       String
+  userBId       String
+  /// 冗余：会话列表按此排序，避免每次 join messages 取最新时间
+  lastMessageAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  userA    User            @relation("conversationInitiator", fields: [userAId], references: [id], onDelete: Cascade)
+  userB    User            @relation("conversationJoined", fields: [userBId], references: [id], onDelete: Cascade)
+  messages DirectMessage[]
+
+  @@unique([userAId, userBId])
+  @@index([userAId, lastMessageAt(sort: Desc)])
+  @@index([userBId, lastMessageAt(sort: Desc)])
+}
+
+/// 私聊消息：文字或图片（二选一，图片走存储抽象与博客同管线）
+model DirectMessage {
+  id             String    @id @default(cuid())
+  conversationId String
+  senderId       String
+  content        String?   @db.VarChar(2000)
+  /// 图片 URL（上传管线校验大小/类型）
+  imageUrl       String?
+  readAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt(sort: Desc)])
+}
+
+/// 短链（2026-10 落地）：支持 URL 短链与文件/图片分享短链
+model ShortLink {
+  id          String    @id @default(cuid())
+  userId      String
+  /// 短码（Base62，全局唯一）
+  slug        String    @unique
+  /// url = 普通链接短链；file = 文件/图片分享
+  kind        String    @default("url")
+  /// 目标链接（kind=url 必填）
+  targetUrl   String?   @db.Text
+  /// 文件存储 key（kind=file 使用，与博客图片同存储抽象）
+  fileKey     String?
+  /// 原始文件名（下载时还原）
+  fileName    String?   @db.VarChar(255)
+  mimeType    String?   @db.VarChar(100)
+  fileSize    Int?
+  /// 标题与备注（管理列表展示）
+  title       String?   @db.VarChar(200)
+  description String?   @db.VarChar(500)
+  isActive    Boolean   @default(true)
+  expiresAt   DateTime?
+  clickCount  Int       @default(0)
+  lastClickAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user   User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  visits LinkVisit[]
+
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+/// 短链访问明细：IP 哈希脱敏（与 Session.ipHash 同口径）
 model LinkVisit {
   id        String   @id @default(cuid())
   linkId    String
   ipHash    String?
-  userAgent String?
-  referer   String?
+  userAgent String?  @db.VarChar(500)
+  referer   String?  @db.VarChar(500)
   country   String?
   visitedAt DateTime @default(now())
+
+  link ShortLink @relation(fields: [linkId], references: [id], onDelete: Cascade)
 
   @@index([linkId, visitedAt])
 }
 
-/// 预留：书签（阶段四）
+/// 书签（2026-10 落地）：网站收藏 + 博客文章收藏，文件夹/标签/星标/备注
 model Bookmark {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   userId      String
-  url         String
-  title       String
-  favicon     String?
-  description String?
-  isPublic    Boolean  @default(false)
-  shareToken  String?  @unique
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  url         String    @db.Text
+  title       String    @db.VarChar(300)
+  /// link = 网站；post = 站内博客文章
+  kind        String    @default("link")
+  favicon     String?   @db.VarChar(500)
+  /// 摘要（书签详情与搜索展示）
+  description String?   @db.VarChar(500)
+  /// 收藏夹（文件夹）
+  folder      String    @default("默认收藏") @db.VarChar(100)
+  /// 标签（PostgreSQL 原生数组）
+  tags        String[]
+  isFavorite  Boolean   @default(false)
+  /// 个人备注
+  note        String?   @db.Text
+  /// 归档：从主列表隐藏但保留
+  archivedAt  DateTime?
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  @@index([userId])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, deletedAt, createdAt(sort: Desc)])
+  @@index([userId, folder])
+  @@index([userId, kind])
 }
 
 /// 预留：问卷（阶段五）

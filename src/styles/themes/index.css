@@ -336,6 +336,8 @@ body {
   background-color: var(--color-bg-base);
   color: var(--color-text-primary);
   line-height: 1.6;
+  /* 主题/明暗切换时底色平滑过渡（View Transitions 不可用时也能柔和渐变） */
+  transition: background-color 450ms var(--ease-out), color 450ms var(--ease-out);
 }
 
 [data-theme="tech"][data-mode="dark"] body {
@@ -585,9 +587,16 @@ body {
  */
 .card {
   background-color: var(--color-bg-surface);
+  /* 微渐变：卡片从上到下与页面底色极轻地互混，避免平面色块的生硬边界 */
+  background-image: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-bg-base) 0%, var(--color-bg-surface)) 0%,
+    color-mix(in srgb, var(--color-bg-base) 14%, var(--color-bg-surface)) 100%
+  );
   border: 1px solid color-mix(in srgb, var(--color-border) 26%, transparent);
   border-radius: var(--radius-lg);
   box-shadow: none;
+  transition: background-color var(--duration-base) var(--ease-out);
 }
 
 /* 可交互卡片：悬停 = 背景提亮 + 轻微上移（无界化规范：不用阴影增强） */
@@ -668,19 +677,21 @@ body {
 }
 [data-motion="off"] .skeleton::after { animation: none; opacity: 0; }
 
-/* ---------- 内容区过渡（板块切换淡入 + 位移） ---------- */
+/* ---------- 内容区过渡（板块切换：淡入 + 位移 + 轻微失焦复原，丝滑感） ---------- */
 @keyframes content-in {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(10px);
+    filter: blur(3px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
+    filter: blur(0);
   }
 }
 .page-enter {
-  animation: content-in var(--duration-base) var(--ease-out);
+  animation: content-in 340ms var(--ease-out);
 }
 
 /* ---------- 列表项展开 / 收缩 ---------- */

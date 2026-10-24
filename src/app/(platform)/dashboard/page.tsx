@@ -4,12 +4,13 @@ import { getPrincipal } from "@/lib/auth/session";
 import { MODULES } from "@/config/modules";
 import { getDashboardData } from "@/modules/analytics/services/dashboard-service";
 import { DashboardSections } from "@/modules/analytics/components/dashboard-sections";
+import { StatRing } from "@/modules/analytics/components/stat-gauge";
 import { toLocalDateString } from "@/lib/date/timezone";
-import { Flame, ListChecks, CheckCircle2 } from "lucide-react";
+import { Flame } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
-/** 总览仪表盘（PRD §5.3）：问候区 + 统计卡片×2 + 今日任务 + 今日习惯 + 快捷入口 */
+/** 总览仪表盘：问候区 + 仪表盘（环形进度）+ 今日任务/习惯 + 快捷入口 */
 export default async function DashboardPage() {
   const principal = await getPrincipal();
   if (!principal) redirect("/login");
@@ -24,14 +25,11 @@ export default async function DashboardPage() {
     ? principal.guest.displayName
     : (principal.user.displayName ?? principal.user.username);
 
-  const stats = [
-    {
-      icon: CheckCircle2,
-      label: "今日完成",
-      value: `${data.todayCompletedCount} / ${data.todayCompletedCount + data.todayPendingCount}`,
-    },
-    { icon: Flame, label: "最长连续", value: `${data.longestStreak} 天` },
-  ];
+  // 仪表盘口径
+  const taskDone = data.todayCompletedCount;
+  const taskTotal = data.todayCompletedCount + data.todayPendingCount;
+  const habitDone = data.habits.filter((h) => h.checkedToday).length;
+  const habitTotal = data.habits.length;
 
   return (
     <div className="relative space-y-8">
@@ -49,23 +47,44 @@ export default async function DashboardPage() {
         </p>
       </header>
 
-      {/* 统计卡片 ×2（数字着色：总览的色彩性格） */}
-      <div className="relative grid grid-cols-2 gap-4 lg:max-w-md">
-        {stats.map((s) => (
-          <div key={s.label} className="card card-interactive p-4">
-            <s.icon size={18} style={{ color: "var(--color-primary)" }} aria-hidden />
-            <p
-              className="mt-2 text-2xl font-semibold tabular-nums"
-              style={{ color: "var(--color-primary)" }}
+      {/* 仪表盘：环形进度 ×2 + 连续打卡。整卡以主色极浅渐变打底，
+          与页面背景平滑过渡，避免生硬的色块分割 */}
+      <section
+        aria-label="今日概览"
+        className="card relative overflow-hidden p-5"
+        style={{
+          background:
+            "linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 6%, var(--color-bg-surface)) 0%, var(--color-bg-surface) 45%, color-mix(in srgb, var(--color-accent) 5%, var(--color-bg-surface)) 100%)",
+        }}
+      >
+        <div className="flex flex-wrap items-center justify-around gap-6 sm:gap-10">
+          <StatRing value={taskDone} total={taskTotal} label="今日任务" />
+          <div className="hidden h-16 w-px shrink-0 sm:block" style={{ background: "linear-gradient(to bottom, transparent, var(--color-border), transparent)" }} aria-hidden />
+          <StatRing value={habitDone} total={habitTotal} label="今日习惯" />
+          <div className="hidden h-16 w-px shrink-0 sm:block" style={{ background: "linear-gradient(to bottom, transparent, var(--color-border), transparent)" }} aria-hidden />
+          {/* 连续打卡：数字即仪表 */}
+          <div className="flex min-w-[108px] flex-col items-center gap-1.5">
+            <div
+              className="flex h-[108px] w-[108px] flex-col items-center justify-center rounded-full"
+              style={{
+                background:
+                  "radial-gradient(circle, color-mix(in srgb, var(--color-warning) 14%, transparent) 0%, transparent 72%)",
+              }}
             >
-              {s.value}
-            </p>
-            <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
-              {s.label}
-            </p>
+              <span className="flex items-center gap-1 text-2xl font-semibold tabular-nums" style={{ color: "var(--color-warning)" }}>
+                <Flame size={20} aria-hidden />
+                {data.longestStreak}
+              </span>
+              <span className="text-[11px]" style={{ color: "var(--color-text-muted)" }}>
+                天连续
+              </span>
+            </div>
+            <span className="text-xs font-medium" style={{ color: "var(--color-text-secondary)" }}>
+              最长连续打卡
+            </span>
           </div>
-        ))}
-      </div>
+        </div>
+      </section>
 
       {/* 今日任务 / 今日习惯（可直接勾选、打卡） */}
       <DashboardSections initialTasks={data.todayTasks} habits={data.habits} today={today} isGuest={isGuest} />
@@ -105,14 +124,6 @@ export default async function DashboardPage() {
           ))}
         </div>
       </section>
-
-      {/* 空状态兜底（鼓励型人格：“今天状态不错”的语气） */}
-      {data.todayTasks.length === 0 && data.habits.length === 0 && (
-        <div className="card flex items-center gap-3 p-4 text-sm" style={{ color: "var(--color-text-muted)" }}>
-          <ListChecks size={18} aria-hidden />
-          今天从这里开始：添加一个任务或创建一个习惯。
-        </div>
-      )}
     </div>
   );
 }

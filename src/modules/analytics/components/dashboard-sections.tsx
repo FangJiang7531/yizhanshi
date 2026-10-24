@@ -10,6 +10,7 @@ import { toggleHabitLogAction } from "@/modules/habits/actions/habit-actions";
 import type { TaskDTO } from "@/modules/tasks/types";
 import type { HabitDTO } from "@/modules/habits/types";
 import { HabitIconView } from "@/modules/habits/components/habit-icon";
+import { ProgressBar } from "./stat-gauge";
 
 /** 总览页可交互区：今日任务可直接勾选完成；今日习惯可直接打卡（与板块页行为一致） */
 export function DashboardSections({
@@ -73,13 +74,19 @@ export function DashboardSections({
 
   const habitsPending = habitList.filter((h) => !h.checkedToday);
   const allHabitsDone = habitList.length > 0 && habitsPending.length === 0;
+  const tasksShown = tasks.length;
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       {/* 今日任务 */}
       <section className="card p-4" aria-label="今日任务">
         <header className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold">今日任务</h2>
+          <h2 className="text-sm font-semibold">
+            今日任务
+            <span className="ml-2 text-xs font-normal tabular-nums" style={{ color: "var(--color-text-muted)" }}>
+              待办 {tasksShown} 项
+            </span>
+          </h2>
           <a href="/tasks" className="text-xs" style={{ color: "var(--color-primary)" }}>
             查看全部 →
           </a>
@@ -119,12 +126,24 @@ export function DashboardSections({
 
       {/* 今日习惯 */}
       <section className="card p-4" aria-label="今日习惯">
-        <header className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold">今日习惯</h2>
+        <header className="mb-1 flex items-center justify-between">
+          <h2 className="text-sm font-semibold">
+            今日习惯
+            <span className="ml-2 text-xs font-normal tabular-nums" style={{ color: "var(--color-text-muted)" }}>
+              {habitList.length - habitsPending.length} / {habitList.length}
+            </span>
+          </h2>
           <a href="/habits" className="text-xs" style={{ color: "var(--color-primary)" }}>
             查看全部 →
           </a>
         </header>
+        <ProgressBar
+          value={habitList.length - habitsPending.length}
+          total={habitList.length}
+          label="今日习惯完成进度"
+          color="var(--color-success)"
+        />
+        <div className="h-3" aria-hidden />
         {habitList.length === 0 ? (
           <p className="py-6 text-sm" style={{ color: "var(--color-text-muted)" }}>
             还没有习惯，去创建一个吧

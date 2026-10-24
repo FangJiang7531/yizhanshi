@@ -99,7 +99,9 @@ export function Sidebar({
           // 打开态内联 translate:0 覆盖类的 -100%；关闭态置 undefined 让类生效（滑出屏幕）；
           // 桌面端由 md:translate-x-0 覆盖，恢复 static 文档流布局。
           translate: mobileOpen ? "0" : undefined,
-          backgroundColor: "var(--color-bg-surface)",
+          // 右缘渐隐入内容区底色：消除「两种底色的硬切分割」
+          background:
+            "linear-gradient(to right, var(--color-bg-surface) 0%, var(--color-bg-surface) 78%, color-mix(in srgb, var(--color-bg-surface) 55%, var(--color-bg-base)) 100%)",
           transitionTimingFunction: "var(--ease-out)",
         }}
         data-mobile-open={mobileOpen}
