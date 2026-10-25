@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 启动主题：冷启动窗口即显示全屏启动图（替代白屏），点击图标无缝切入 -->
+    <style name="AppTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@drawable/splash</item>
+        <item name="android:statusBarColor">#0B1230</item>
+        <item name="android:navigationBarColor">#0B1230</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

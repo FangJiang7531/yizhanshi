@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 启动屏窗口背景：全屏启动图（fill 铺满；竖版启动图与手机屏比例一致，无形变观感），
+     Activity 内启动层用 ImageView CENTER_CROP 同图无缝接管 -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/splash_bg" />
+    <item>
+        <bitmap
+            android:src="@drawable/splash_full"
+            android:gravity="fill" />
+    </item>
+</layer-list>
