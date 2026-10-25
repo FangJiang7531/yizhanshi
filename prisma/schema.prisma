@@ -147,6 +147,10 @@ model User {
   shortLinks             ShortLink[]
   bookmarks              Bookmark[]
   featureRequests        FeatureRequest[]
+  badge                  UserBadge?
+  systemMessages         SystemMessage[]
+  adminSessions          AdminSession[]
+  blockedContents        BlockedContent[]
 }
 
 model Session {
@@ -216,6 +220,100 @@ model RateLimitBucket {
   key         String   @id
   count       Int      @default(0)
   windowStart DateTime @default(now())
+}
+
+// ---------- 管理后台（2026-10）----------
+
+/// 用户称号（认证标识）：管理端自定义文字与配色；评论区/空间等名片处展示，
+/// 持有者头像右下角叠加 S 角标。
+model UserBadge {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  /// 称号文字（≤20 字）
+  text      String   @db.VarChar(20)
+  /// 文字/边框色（hex）
+  color     String   @db.VarChar(16)
+  /// 背景色（hex；空=透明底）
+  bgColor   String?  @db.VarChar(16)
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// 站内弹窗公告：用户端进入平台时弹出（按用户本地记忆已读）
+model Announcement {
+  id        String    @id @default(cuid())
+  title     String    @db.VarChar(200)
+  content   String    @db.VarChar(2000)
+  /// info | warning | critical（影响弹窗配色）
+  level     String    @default("info")
+  /// 是否展示
+  active    Boolean   @default(true)
+  startsAt  DateTime?
+  endsAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+/// 平台功能开关：管理端一键启停用户端板块
+model FeatureFlag {
+  key            String   @id
+  enabled        Boolean  @default(true)
+  /// 停用原因（展示给用户）
+  disabledReason String?  @db.VarChar(200)
+  updatedAt      DateTime @updatedAt
+}
+
+/// 系统私信：管理端发给指定用户的官方消息（用户端「系统信息」栏统一展示）
+model SystemMessage {
+  id        String    @id @default(cuid())
+  userId    String
+  title     String    @db.VarChar(200)
+  content   String    @db.VarChar(2000)
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt(sort: Desc)])
+}
+
+/// 管理员会话：与用户会话（Session）完全隔离，独立 Cookie（pwb_admin）。
+/// 登录需双因子：账号密码 + 服务器下发密钥（ADMIN_ACCESS_KEY）。
+model AdminSession {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  /// 双因子通过时间（审计）
+  grantedAt DateTime @default(now())
+  expiresAt DateTime
+  ipHash    String?
+  userAgent String?  @db.VarChar(500)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// 自动审查阻断记录：命中 BLOCK 级违禁词的内容存档，供管理端审查处置
+model BlockedContent {
+  id           String   @id @default(cuid())
+  userId       String
+  /// post | comment | message
+  kind         String   @db.VarChar(20)
+  /// 内容快照（≤2000 字）
+  content      String   @db.VarChar(2000)
+  matchedWords Json?
+  /// pending | dismissed
+  status       String   @default("pending")
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt(sort: Desc)])
 }
 
 /// 需求反馈（意见征集）：未开放板块「想要什么功能，告诉我们」提交内容。

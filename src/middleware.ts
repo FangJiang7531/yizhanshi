@@ -28,6 +28,21 @@ function hasSessionCookie(cookieHeader: string | null): boolean {
 export function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const hasCookie = hasSessionCookie(request.headers.get("cookie"));
+  const hasAdminCookie = request.headers.get("cookie")?.includes("pwb_admin=") ?? false;
+
+  // ── 管理端路由（与用户端完全隔离）：仅认管理 Cookie，用户会话不可进入 ──
+  if (pathname === "/admin/login") {
+    if (hasAdminCookie) {
+      return NextResponse.redirect(new URL("/admin", request.url));
+    }
+    return withPathname(request);
+  }
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) {
+    if (!hasAdminCookie) {
+      return NextResponse.redirect(new URL("/admin/login", request.url));
+    }
+    return withPathname(request);
+  }
 
   if (pathname === "/login") {
     if (hasCookie) {

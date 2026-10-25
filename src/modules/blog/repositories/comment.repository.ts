@@ -11,7 +11,15 @@ import { NotFoundError } from "@/lib/errors";
  */
 
 const COMMENT_INCLUDE = {
-  user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
+  user: {
+    select: {
+      id: true,
+      username: true,
+      displayName: true,
+      avatarUrl: true,
+      badge: { select: { text: true, color: true, bgColor: true, enabled: true } },
+    },
+  },
 } satisfies Prisma.CommentInclude;
 
 /**

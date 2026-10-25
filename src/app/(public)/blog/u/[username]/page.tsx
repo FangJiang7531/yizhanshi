@@ -70,6 +70,7 @@ export default async function AuthorPage({ params }: { params: Promise<{ usernam
       avatarUrl: true,
       bio: true,
       coverImage: true,
+      badge: { select: { text: true, color: true, bgColor: true, enabled: true } },
     },
   });
   if (!user) notFound();
@@ -78,6 +79,10 @@ export default async function AuthorPage({ params }: { params: Promise<{ usernam
     postService.listByAuthor(username, { take: TAKE }),
     createFollowService().statsOf(username),
   ]);
+  const userBadge =
+    user.badge?.enabled
+      ? { text: user.badge.text, color: user.badge.color, bgColor: user.badge.bgColor }
+      : null;
   const { items, nextCursor } = authorData;
 
   return (
@@ -92,6 +97,7 @@ export default async function AuthorPage({ params }: { params: Promise<{ usernam
           coverImage: user.coverImage,
           stats: social,
           isMe: false,
+          badge: userBadge,
         } as ComponentProps<typeof SpaceHeader>)}
       />
 

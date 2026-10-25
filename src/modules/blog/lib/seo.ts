@@ -126,6 +126,9 @@ export function buildRobotsRules(siteUrl: string): MetadataRoute.Robots {
         allow: "/",
         disallow: [
           "/space",
+          "/admin",
+          "/admin/",
+          "/messages",
           "/blog/new",
           "/blog/*/edit",
           "/blog/moderation",

@@ -12,6 +12,7 @@ import { toggleCommentLikeAction } from "../../actions/interaction.actions";
 import { useCommentStream } from "../../hooks/use-comment-stream";
 import { AuthorAvatar } from "../post-card";
 import { UserAvatarMenu } from "@/modules/notification/components/user-avatar-menu";
+import { BadgeAuthorName, WithSStrip } from "@/components/ui/user-badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/feedback/toast";
 import { formatDateTime } from "../../lib/format";
@@ -423,11 +424,17 @@ function CommentItem({
           displayName={comment.author.displayName ?? comment.author.username}
           avatarUrl={comment.author.avatarUrl}
         >
-          <AuthorAvatar author={comment.author} size={32} />
+          <WithSStrip badge={comment.author.badge}>
+            <AuthorAvatar author={comment.author} size={32} />
+          </WithSStrip>
         </UserAvatarMenu>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-baseline gap-2">
-            <span className="text-[13px] font-medium">{comment.author.displayName ?? comment.author.username}</span>
+            <BadgeAuthorName
+              name={comment.author.displayName ?? comment.author.username}
+              badge={comment.author.badge}
+              className="min-w-0 text-[13px] font-medium"
+            />
             <time dateTime={comment.createdAt} className="text-[11px]" style={{ color: "var(--color-text-muted)" }}>
               {formatDateTime(comment.createdAt)}
             </time>

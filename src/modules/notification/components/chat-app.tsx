@@ -11,6 +11,7 @@ import {
   sendTextMessageAction,
 } from "../actions/message.actions";
 import type { ConversationDTO, MessageDTO } from "../services/message.service";
+import { listSystemMessagesAction, markSystemMessageReadAction, type SystemMessageDTO } from "../actions/system.actions";
 
 /**
  * 私聊界面（仿主流社交软件）：
@@ -34,6 +35,8 @@ export function ChatApp() {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [loadingThread, setLoadingThread] = useState(false);
+  const [tab, setTab] = useState<"chat" | "system">("chat");
+  const [systemMsgs, setSystemMsgs] = useState<SystemMessageDTO[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -79,6 +82,22 @@ export function ChatApp() {
   useEffect(() => {
     if (activePeer) void loadThread(activePeer);
   }, [activePeer, loadThread]);
+
+  useEffect(() => {
+    if (tab !== "system") return;
+    let alive = true;
+    void (async () => {
+      const res = await listSystemMessagesAction();
+      if (!alive) return;
+      if (res.success) {
+        setSystemMsgs(res.data);
+        if (res.data.some((m) => !m.read)) void markSystemMessageReadAction({});
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [tab]);
 
   // 轮询：会话列表 12s / 活跃会话新消息 5s
   useEffect(() => {
@@ -151,9 +170,58 @@ export function ChatApp() {
         className={`min-h-0 flex-col border-r ${activePeer ? "hidden md:flex" : "flex"}`}
         style={{ borderColor: "color-mix(in srgb, var(--color-border) 40%, transparent)" }}
       >
-        <header className="px-4 py-3 text-sm font-semibold">私信</header>
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          {conversations.length === 0 ? (
+        <header className="px-4 pt-3 text-sm font-semibold">
+          <div className="flex gap-1 rounded-[var(--radius-sm)] p-0.5" style={{ backgroundColor: "var(--color-bg-elevated)" }} role="tablist" aria-label="私信类型">
+            {([["chat", "私信"], ["system", "系统信息"]] as const).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                aria-selected={tab === key}
+                onClick={() => setTab(key)}
+                className="flex-1 rounded-[var(--radius-sm)] px-2 py-1 text-xs transition-colors"
+                style={{
+                  backgroundColor: tab === key ? "color-mix(in srgb, var(--color-primary) 14%, transparent)" : "transparent",
+                  color: tab === key ? "var(--color-primary)" : "var(--color-text-muted)",
+                  fontWeight: tab === key ? 600 : 400,
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </header>
+        <div className={`min-h-0 flex-1 overflow-y-auto ${tab === "system" ? "" : activePeer ? "hidden md:block" : ""}`}>
+          {tab === "system" ? (
+            systemMsgs.length === 0 ? (
+              <p className="px-4 py-8 text-center text-sm" style={{ color: "var(--color-text-muted)" }}>
+                暂无系统信息
+              </p>
+            ) : (
+              <ul className="space-y-2 p-3">
+                {systemMsgs.map((m) => (
+                  <li key={m.id} className="card p-3">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
+                        style={{ background: "linear-gradient(135deg, var(--color-primary), var(--color-accent))", color: "var(--color-primary-fg)" }}
+                        aria-hidden
+                      >
+                        官
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{m.title}</span>
+                      <time className="shrink-0 text-[11px]" style={{ color: "var(--color-text-muted)" }}>
+                        {new Date(m.createdAt).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                      </time>
+                    </div>
+                    <p className="mt-1.5 whitespace-pre-wrap break-words text-xs leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>
+                      {m.content}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )
+          ) : conversations.length === 0 ? (
             <p className="px-4 py-8 text-center text-sm" style={{ color: "var(--color-text-muted)" }}>
               还没有会话。在文章或评论区点击他人头像即可发起私聊。
             </p>

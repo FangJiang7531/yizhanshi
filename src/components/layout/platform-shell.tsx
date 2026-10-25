@@ -7,6 +7,7 @@ import { Topbar, type TopbarUser } from "./topbar";
 import { CommandPalette, useRecentPageTracker } from "./command-palette";
 import { MobileTabBar } from "./mobile-tab-bar";
 import { BackToTop } from "./back-to-top";
+import { AnnouncementPopup } from "@/modules/notification/components/announcement-popup";
 import { useRubberBand } from "@/lib/hooks/use-rubber-band";
 import { getModuleMeta } from "@/config/modules";
 
@@ -81,10 +82,11 @@ export function PlatformShell({
         </main>
       </div>
 
-      {/* 全局增强：命令面板 / 移动端底部标签栏 / 回到顶部 */}
+      {/* 全局增强：命令面板 / 移动端底部标签栏 / 回到顶部 / 弹窗公告 */}
       <CommandPalette isGuest={user.isGuest} />
       <MobileTabBar onOpenMore={() => setMobileOpen(true)} />
       <BackToTop />
+      <AnnouncementPopup isGuest={user.isGuest} />
     </div>
   );
 }

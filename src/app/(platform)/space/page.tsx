@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Plus, ShieldCheck } from "lucide-react";
 import { getPrincipal } from "@/lib/auth/session";
+import { prisma } from "@/lib/db";
 import { createPostService } from "@/modules/blog/services/post.service";
 import { createFollowService } from "@/modules/notification/services/follow.service";
 import { SpaceHeader } from "@/modules/blog/components/space/space-header";
@@ -24,10 +25,15 @@ export default async function SpacePage() {
 
   const service = createPostService();
   const followService = createFollowService();
-  const [mine, social] = await Promise.all([
+  const [mine, social, badgeRow] = await Promise.all([
     service.listMine(user.id, { status: "DRAFT", sort: "updated", take: 20 }),
     followService.statsOf(user.username),
+    prisma.userBadge.findUnique({ where: { userId: user.id } }),
   ]);
+  const badge =
+    badgeRow?.enabled
+      ? { text: badgeRow.text, color: badgeRow.color, bgColor: badgeRow.bgColor }
+      : null;
 
   return (
     <div className="space-y-5">
@@ -39,6 +45,7 @@ export default async function SpacePage() {
         coverImage={user.coverImage}
         stats={social}
         isMe
+        badge={badge}
       />
 
       <div className="flex flex-wrap items-center justify-between gap-3">

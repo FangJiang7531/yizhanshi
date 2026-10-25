@@ -34,6 +34,8 @@ export type AuthorDTO = {
   username: string;
   displayName: string | null;
   avatarUrl: string | null;
+  /** 认证称号（管理端发放；无认证为 null） */
+  badge: { text: string; color: string; bgColor: string | null } | null;
 };
 
 /** 列表项：不含正文（列表页不需要，避免把大字段传过 RSC 边界） */

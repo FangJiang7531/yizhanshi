@@ -58,6 +58,8 @@ const envSchema = z.object({
   BLOG_NEW_USER_COOLDOWN_HOURS: z.coerce.number().int().min(0).default(24),
 
   // ---------- 第三方登录（OAuth 授权码流程；双要素齐备才启用对应按钮）----------
+  /** 管理后台第二因子密钥（服务器部署时下发；为空则管理端登录不可用） */
+  ADMIN_ACCESS_KEY: optionalText,
   GITHUB_CLIENT_ID: optionalText,
   GITHUB_CLIENT_SECRET: optionalText,
   GOOGLE_CLIENT_ID: optionalText,

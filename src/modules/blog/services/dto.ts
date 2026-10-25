@@ -18,7 +18,13 @@ import type {
  * 把 Date 统一转成 ISO 串、把 Prisma 的嵌套 shape 拍平成前端好用的结构，避免两边各写一份。
  */
 
-type AuthorShape = { id: string; username: string; displayName: string | null; avatarUrl: string | null };
+type AuthorShape = {
+  id: string;
+  username: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  badge?: { text: string; color: string; bgColor: string | null; enabled: boolean } | null;
+};
 
 type PostWithRelations = BlogPost & {
   user: AuthorShape;
@@ -33,6 +39,9 @@ function toAuthor(user: AuthorShape): AuthorDTO {
     username: user.username,
     displayName: user.displayName,
     avatarUrl: user.avatarUrl,
+    badge: user.badge && user.badge.enabled
+      ? { text: user.badge.text, color: user.badge.color, bgColor: user.badge.bgColor }
+      : null,
   };
 }
 

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getPrincipal } from "@/lib/auth/session";
 import { requireNonGuest, requireRole } from "@/lib/auth/guards";
-import { fail, ok, NotFoundError, UnauthorizedError, type ActionResult } from "@/lib/errors";
+import { ContentRejectedError, fail, ok, NotFoundError, UnauthorizedError, type ActionResult } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { z } from "zod";
 import { createCommentSchema, deleteCommentSchema, moderateSchema } from "../schemas";
@@ -48,15 +48,17 @@ export async function listCommentsAction(raw: unknown): Promise<ActionResult<Com
 }
 
 export async function createCommentAction(raw: unknown): Promise<ActionResult<CommentDTO>> {
+  let user: Awaited<ReturnType<typeof requireNonGuest>> | null = null;
+  let data: unknown = null;
   try {
-    const user = await requireNonGuest();
-    const data = createCommentSchema.parse(raw);
+    user = await requireNonGuest();
+    data = createCommentSchema.parse(raw);
     const service = createCommentService();
-    const comment = await service.create(user.id, data, { isAdmin: user.role === "ADMIN" });
+    const comment = await service.create(user.id, data as never, { isAdmin: user.role === "ADMIN" });
 
     // 评论是详情页的一部分，需要失效对应 slug 的缓存
     const post = await prisma.blogPost.findUnique({
-      where: { id: data.postId },
+      where: { id: (data as { postId: string }).postId },
       select: { slug: true, userId: true },
     });
     if (post) revalidatePath(`/blog/p/${post.slug}`);
@@ -96,6 +98,20 @@ export async function createCommentAction(raw: unknown): Promise<ActionResult<Co
 
     return ok(comment);
   } catch (err) {
+    // 违禁词阻断内容入库，供管理端审查（尽力而为，不影响原错误返回）
+    if (err instanceof ContentRejectedError && Array.isArray((err as ContentRejectedError).hits)) {
+      try {
+        const { createAdminService } = await import("@/modules/admin/services/admin.service");
+        await createAdminService().recordBlocked(
+          user!.id,
+          "comment",
+          String((data as { content?: string } | null)?.content ?? "").slice(0, 2000),
+          (err as ContentRejectedError).hits.map((h) => h.word),
+        );
+      } catch {
+        // ignore
+      }
+    }
     logger.warn({ module: "blog", err: (err as Error).message }, "createCommentAction");
     return fail(err);
   }

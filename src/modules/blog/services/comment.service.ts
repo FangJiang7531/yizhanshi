@@ -218,6 +218,7 @@ export function createCommentService(
           username: r.user.username,
           displayName: r.user.displayName,
           avatarUrl: r.user.avatarUrl,
+          badge: null,
         },
         post: { id: r.post.id, slug: r.post.slug, title: r.post.title },
       }));

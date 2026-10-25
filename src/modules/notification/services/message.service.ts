@@ -41,10 +41,22 @@ export function createMessageService(db: PrismaClient = defaultPrisma) {
   const notifier = createNotificationService(db);
 
   /** 规范校验：BLOCK 拒绝；其余打码放行。返回安全文本 */
-  function sanitizeText(text: string): string {
+  function sanitizeText(text: string, currentUserId: string): string {
     const hits = sensitiveFilter.scan(text);
     const blocked = hits.filter((h) => h.level === "BLOCK");
     if (blocked.length > 0) {
+      try {
+        void db.blockedContent.create({
+          data: {
+            userId: currentUserId,
+            kind: "message",
+            content: text.slice(0, 2000),
+            matchedWords: blocked.map((h) => h.word).slice(0, 20),
+          },
+        });
+      } catch {
+        // ignore：阻断记录失败不影响拦截本身
+      }
       throw new ContentRejectedError(blocked, "消息包含违禁词，无法发送");
     }
     if (hits.length === 0) return text;
@@ -197,7 +209,7 @@ export function createMessageService(db: PrismaClient = defaultPrisma) {
       });
       if (recent >= MESSAGE_RATE_LIMIT) throw new RateLimitError("发送太频繁，请稍后再试");
 
-      const content = sanitizeText(rawContent.trim());
+      const content = sanitizeText(rawContent.trim(), userId);
       const convId = await getOrCreateConversation(userId, peer.id);
       const msg = await db.directMessage.create({
         data: { conversationId: convId, senderId: userId, content },

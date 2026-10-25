@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Camera, Download, MessageCircle, Pencil, UserCheck, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/feedback/toast";
+import { BadgeChip, WithSStrip } from "@/components/ui/user-badge";
 import {
   uploadCoverAction,
   removeCoverAction,
@@ -34,6 +35,7 @@ export function SpaceHeader({
   coverImage,
   stats,
   isMe,
+  badge,
 }: {
   username: string;
   displayName: string;
@@ -42,6 +44,7 @@ export function SpaceHeader({
   coverImage: string | null;
   stats: { following: number; followers: number; posts: number };
   isMe: boolean;
+  badge?: { text: string; color: string; bgColor: string | null } | null;
 }) {
   const toast = useToast();
   const router = useRouter();
@@ -232,31 +235,33 @@ export function SpaceHeader({
         <div className="flex items-end justify-between gap-3">
           <div className="-mt-8 shrink-0 sm:-mt-10">
             <UserAvatarMenu username={username} displayName={name} avatarUrl={avatarUrl} isMe={isMe}>
-              {avatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element -- 头像走本地 API
-                <img
-                  src={avatarUrl}
-                  alt=""
-                  width={72}
-                  height={72}
-                  className="rounded-full border-4 object-cover"
-                  style={{ width: 72, height: 72, borderColor: "var(--color-bg-surface)" }}
-                />
-              ) : (
-                <span
-                  aria-hidden
-                  className="flex items-center justify-center rounded-full border-4 text-2xl font-bold"
-                  style={{
-                    width: 72,
-                    height: 72,
-                    borderColor: "var(--color-bg-surface)",
-                    background: "linear-gradient(135deg, var(--color-primary), var(--color-accent))",
-                    color: "var(--color-primary-fg)",
-                  }}
-                >
-                  {name.slice(0, 1).toUpperCase()}
-                </span>
-              )}
+              <WithSStrip badge={badge}>
+                {avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- 头像走本地 API
+                  <img
+                    src={avatarUrl}
+                    alt=""
+                    width={72}
+                    height={72}
+                    className="rounded-full border-4 object-cover"
+                    style={{ width: 72, height: 72, borderColor: "var(--color-bg-surface)" }}
+                  />
+                ) : (
+                  <span
+                    aria-hidden
+                    className="flex items-center justify-center rounded-full border-4 text-2xl font-bold"
+                    style={{
+                      width: 72,
+                      height: 72,
+                      borderColor: "var(--color-bg-surface)",
+                      background: "linear-gradient(135deg, var(--color-primary), var(--color-accent))",
+                      color: "var(--color-primary-fg)",
+                    }}
+                  >
+                    {name.slice(0, 1).toUpperCase()}
+                  </span>
+                )}
+              </WithSStrip>
             </UserAvatarMenu>
           </div>
 
@@ -295,7 +300,10 @@ export function SpaceHeader({
               </button>
             </span>
           ) : (
-            <h1 className="max-w-full truncate text-lg font-semibold">{name}</h1>
+            <h1 className="flex min-w-0 max-w-full items-center gap-1.5 truncate text-lg font-semibold">
+              <span className="truncate">{name}</span>
+              <BadgeChip badge={badge} fontSize={12} />
+            </h1>
           )}
           {!editingName && (
             <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>
